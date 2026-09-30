@@ -1,0 +1,9 @@
+node_modules/
+.env
+prisma/*.db
+prisma/*.db-journal
+uploads/
+# PDF ตัวบทกฎหมาย ดาวน์โหลดใหม่ได้ด้วย npm run db:seed
+storage/ebooks/
+# ไฟล์แนบในแชท (ข้อมูลลับของผู้ใช้)
+storage/chat/

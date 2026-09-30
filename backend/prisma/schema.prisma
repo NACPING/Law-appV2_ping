@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Use Case: Register / Login
+// role: CLIENT | LAWYER (เลือกตอนสมัคร) | ADMIN (สร้างจากระบบเท่านั้น)
+model User {
+  id          String    @id @default(uuid())
+  idCard      String    @unique
+  firstName   String
+  lastName    String
+  email       String    @unique
+  password    String
+  phone       String?
+  dateOfBirth DateTime?
+  role        String    @default("CLIENT")
+  // หน้า Profile: รูป (path "/uploads/..."), คำแนะนำตัวสั้น, รายละเอียดทนาย (เฉพาะ LAWYER)
+  avatarUrl   String?
+  bio         String?
+  about       String?
+  // ทนายเลือกได้ว่าจะให้ผู้อื่นเห็นเบอร์โทร/อีเมลในโปรไฟล์ไหม (ลูกความ = ซ่อนเสมอ)
+  showContact Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  posts       Post[]
+  comments    Comment[]
+  favorites   Favorite[]
+
+  lawyerRequests   LawyerRequest[] @relation("RequestClient")
+  assignedRequests LawyerRequest[] @relation("RequestLawyer")
+  reviewedRequests LawyerRequest[] @relation("RequestReviewer")
+  messages         Message[]
+  notifications    Notification[] @relation("NotificationRecipient")
+  actedNotifications Notification[] @relation("NotificationActor")
+}
+
+// การแจ้งเตือนในแอป (กระดิ่ง) — เรื่องเดียวกันที่ยังไม่อ่านจะรวมเป็นรายการเดียว (count) เช่น "ได้รับข้อความใหม่ (3)"
+// type: COMMENT | REPLY | CHAT_MESSAGE | NEW_REQUEST | REQUEST_APPROVED | REQUEST_REJECTED | CASE_ASSIGNED
+//       | CLOSE_REQUESTED | CLOSE_CANCELLED | CLOSE_ACCEPTED | CLOSE_DECLINED
+// targetType: post | request | chat  (บอกว่าแตะแล้วไปหน้าไหน)
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type       String
+  title      String
+  body       String
+  targetType String
+  targetId   String
+  count      Int       @default(1)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, readAt])
+  @@index([userId, updatedAt])
+}
+
+// Use Case: Lawyer_request — ลูกความขอปรึกษา, admin อนุมัติพร้อมมอบหมายทนาย หรือปฏิเสธพร้อมเหตุผล
+// status: PENDING (รอตรวจสอบ) | APPROVED (อนุมัติ แชทได้) | REJECTED (ปฏิเสธ) | CLOSED (ทนายปิดเคส แชทอ่านอย่างเดียว)
+model LawyerRequest {
+  id           String    @id @default(uuid())
+  subject      String
+  events       String // ลำดับเหตุการณ์
+  message      String? // ข้อความถึงทีมงาน
+  status       String    @default("PENDING")
+  rejectReason String?
+  clientId     String
+  client       User      @relation("RequestClient", fields: [clientId], references: [id], onDelete: Cascade)
+  lawyerId     String?
+  lawyer       User?     @relation("RequestLawyer", fields: [lawyerId], references: [id], onDelete: SetNull)
+  reviewedById String?
+  reviewedBy   User?     @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  closedAt     DateTime?
+  // ปิดเคสต้องยินยอมทั้งสองฝ่าย: ทนายขอปิด (ตั้งค่านี้) → ลูกความยินยอม = CLOSED / ไม่ยินยอม = ล้างค่า
+  closeRequestedAt DateTime?
+  messages     Message[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([lawyerId])
+  @@index([status])
+}
+
+// Use Case: Chat — ข้อความในเคส (เห็นเฉพาะลูกความและทนายของเคส, admin ไม่เห็น)
+// แนบไฟล์ได้ 1 ไฟล์ต่อข้อความ: รูปภาพ หรือ PDF — เก็บที่ backend/storage/chat (ไม่เปิดสาธารณะ)
+model Message {
+  id        String        @id @default(uuid())
+  requestId String
+  request   LawyerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text      String?
+  system    Boolean       @default(false) // ข้อความระบบ เช่น "ทนายขอปิดเคส" (senderId = ผู้ทำรายการ)
+  fileKind  String? // "image" | "pdf"
+  fileName  String? // ชื่อไฟล์เดิม (แสดงผล)
+  fileMime  String?
+  fileSize  Int?
+  filePath  String? // ชื่อไฟล์ที่เก็บจริง (สุ่ม)
+  createdAt DateTime      @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+// Use Case: Posting (extend: create post)
+model Post {
+  id          String      @id @default(uuid())
+  title       String
+  content     String
+  isAnonymous Boolean     @default(false)
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  images      PostImage[]
+  comments    Comment[]
+  createdAt   DateTime    @default(now())
+
+  @@index([createdAt])
+}
+
+model PostImage {
+  id     String @id @default(uuid())
+  url    String
+  order  Int    @default(0)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+// Use Case: Posting (extend: create comment) — parentId = ตอบกลับคอมเมนต์อื่น
+model Comment {
+  id        String    @id @default(uuid())
+  content   String
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+
+  @@index([postId])
+}
+
+// Use Case: Reading — หมวดหนังสือ เช่น อาญา / แพ่งและพาณิชย์ / มหาชน
+model Category {
+  id     String  @id // slug เช่น "criminal"
+  name   String
+  color  String // สีปกหนังสือในหมวดนี้
+  order  Int     @default(0)
+  ebooks Ebook[]
+}
+
+// e-book = ตัวบทกฎหมาย (ไฟล์ PDF อยู่ที่ backend/storage/ebooks/<slug>.pdf)
+model Ebook {
+  id             String     @id @default(uuid())
+  slug           String     @unique
+  title          String
+  description    String
+  issuer         String // หน่วยงานผู้จัดทำ/รวบรวม
+  source         String // แหล่งที่ดาวน์โหลดไฟล์มา
+  sourceUrl      String
+  versionNote    String // เช่น "ปรับปรุงถึง 24 มีนาคม 2560"
+  publishedLabel String // ปีที่ประกาศใช้ (แสดงผล)
+  pageCount      Int
+  fileSize       Int // bytes
+  categoryId     String
+  category       Category   @relation(fields: [categoryId], references: [id])
+  favorites      Favorite[]
+  createdAt      DateTime   @default(now())
+
+  @@index([categoryId])
+}
+
+// extend: Bookmark e-book (หน้า Favorite)
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ebookId   String
+  ebook     Ebook    @relation(fields: [ebookId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, ebookId])
+}

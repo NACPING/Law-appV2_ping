@@ -1,0 +1,196 @@
+const prisma = require('../config/db');
+const { removeUploadedFiles } = require('../middlewares/upload');
+const { notify, markRead, removeForTarget, preview, nameOf } = require('../services/notify');
+
+const MAX_TITLE = 150;
+const MAX_CONTENT = 5000;
+const MAX_COMMENT = 2000;
+
+const authorSelect = { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } };
+
+// รูปที่อัปโหลดเก็บเป็น path "/uploads/..." — แปลงเป็น URL เต็มตาม host ที่แอปเรียกเข้ามา
+// (มือถือเรียกผ่าน IP ของคอม จึงใช้ localhost ตายตัวไม่ได้)
+const absoluteUrl = (req, url) => (url.startsWith('/') ? `${req.protocol}://${req.get('host')}${url}` : url);
+
+// โพสต์ไม่ระบุตัวตน: ไม่ส่งข้อมูลผู้เขียนออกไปเลย (แต่บอกเจ้าของว่าเป็นโพสต์ของตัวเอง)
+function toPostDto(req, post) {
+  return {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    isAnonymous: post.isAnonymous,
+    author: post.isAnonymous ? null : post.author,
+    isMine: post.authorId === req.user.userId,
+    images: post.images.map((img) => absoluteUrl(req, img.url)),
+    commentCount: post._count?.comments ?? post.comments?.length ?? 0,
+    createdAt: post.createdAt,
+  };
+}
+
+const toCommentDto = (req, c) => ({
+  id: c.id,
+  content: c.content,
+  parentId: c.parentId,
+  author: c.author,
+  isMine: c.authorId === req.user.userId,
+  createdAt: c.createdAt,
+});
+
+// หน้า Profile ใช้รูปแบบโพสต์เดียวกัน
+exports.authorSelect = authorSelect;
+exports.toPostDto = toPostDto;
+
+const canModify = (req, ownerId) => ownerId === req.user.userId || req.user.role === 'ADMIN';
+
+// GET /api/posts — หน้า Communication
+exports.list = async (req, res) => {
+  const posts = await prisma.post.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+    include: {
+      author: authorSelect,
+      images: { orderBy: { order: 'asc' } },
+      _count: { select: { comments: true } },
+    },
+  });
+  res.json({ posts: posts.map((p) => toPostDto(req, p)) });
+};
+
+// GET /api/posts/:id — หน้า comment
+exports.detail = async (req, res) => {
+  const post = await prisma.post.findUnique({
+    where: { id: req.params.id },
+    include: {
+      author: authorSelect,
+      images: { orderBy: { order: 'asc' } },
+      comments: { orderBy: { createdAt: 'asc' }, include: { author: authorSelect } },
+    },
+  });
+  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+
+  res.json({
+    post: toPostDto(req, post),
+    comments: post.comments.map((c) => toCommentDto(req, c)),
+  });
+  // เปิดดูโพสต์แล้ว = อ่านแจ้งเตือนคอมเมนต์ของโพสต์นี้แล้ว
+  await markRead(req.user.userId, { targetType: 'post', targetId: post.id });
+};
+
+// POST /api/posts (multipart/form-data) — extend: create post
+// fields: title, content, isAnonymous ("true"/"false"), images[] (ไม่บังคับ)
+exports.create = async (req, res) => {
+  const files = req.files ?? [];
+  const imageUrls = files.map((f) => `/uploads/${f.filename}`);
+  const title = String(req.body?.title ?? '').trim();
+  const content = String(req.body?.content ?? '').trim();
+  const isAnonymous = req.body?.isAnonymous === true || req.body?.isAnonymous === 'true';
+
+  let error = '';
+  if (!title || !content) error = 'กรุณากรอกหัวข้อและรายละเอียด';
+  else if (title.length > MAX_TITLE || content.length > MAX_CONTENT) {
+    error = `หัวข้อไม่เกิน ${MAX_TITLE} ตัว, รายละเอียดไม่เกิน ${MAX_CONTENT} ตัว`;
+  }
+  if (error) {
+    removeUploadedFiles(imageUrls);
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const post = await prisma.post.create({
+      data: {
+        title,
+        content,
+        isAnonymous,
+        authorId: req.user.userId,
+        images: { create: imageUrls.map((url, order) => ({ url, order })) },
+      },
+      include: { author: authorSelect, images: { orderBy: { order: 'asc' } }, _count: { select: { comments: true } } },
+    });
+    res.status(201).json({ post: toPostDto(req, post) });
+  } catch (err) {
+    removeUploadedFiles(imageUrls);
+    throw err;
+  }
+};
+
+// DELETE /api/posts/:id — ลบได้เฉพาะเจ้าของโพสต์หรือ ADMIN (ลบไฟล์รูปด้วย)
+exports.remove = async (req, res) => {
+  const post = await prisma.post.findUnique({ where: { id: req.params.id }, include: { images: true } });
+  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+  if (!canModify(req, post.authorId)) return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบโพสต์นี้' });
+
+  await prisma.post.delete({ where: { id: post.id } });
+  removeUploadedFiles(post.images.map((img) => img.url));
+  await removeForTarget('post', post.id); // แจ้งเตือนที่ชี้ไปยังโพสต์นี้ใช้ไม่ได้แล้ว
+  res.status(204).end();
+};
+
+// POST /api/posts/:id/comments — extend: create comment (ส่ง parentId เพื่อตอบกลับ)
+exports.addComment = async (req, res) => {
+  const content = String(req.body?.content ?? '').trim();
+  const parentId = req.body?.parentId || null;
+
+  if (!content) return res.status(400).json({ message: 'กรุณาพิมพ์ความคิดเห็น' });
+  if (content.length > MAX_COMMENT) {
+    return res.status(400).json({ message: `ความคิดเห็นไม่เกิน ${MAX_COMMENT} ตัวอักษร` });
+  }
+
+  const post = await prisma.post.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, title: true, authorId: true },
+  });
+  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+
+  let parent = null;
+  if (parentId) {
+    parent = await prisma.comment.findUnique({ where: { id: parentId } });
+    if (!parent || parent.postId !== post.id) {
+      return res.status(400).json({ message: 'ไม่พบความคิดเห็นที่ต้องการตอบกลับ' });
+    }
+  }
+
+  const comment = await prisma.comment.create({
+    data: { content, parentId, postId: post.id, authorId: req.user.userId },
+    include: { author: authorSelect },
+  });
+  res.status(201).json({ comment: toCommentDto(req, comment) });
+
+  // แจ้งเตือน: คนที่ถูกตอบกลับ (REPLY) และเจ้าของโพสต์ (COMMENT) — ถ้าเป็นคนเดียวกันแจ้งแค่ REPLY
+  const who = nameOf(comment.author);
+  const body = `${who}: "${preview(content)}" — ในโพสต์ "${preview(post.title, 40)}"`;
+  if (parent) {
+    await notify({
+      userId: parent.authorId,
+      actorId: req.user.userId,
+      type: 'REPLY',
+      title: (n) => (n > 1 ? `มีคนตอบกลับความคิดเห็นของคุณ (${n})` : 'มีคนตอบกลับความคิดเห็นของคุณ'),
+      body,
+      targetType: 'post',
+      targetId: post.id,
+      aggregate: true,
+    });
+  }
+  if (post.authorId !== parent?.authorId) {
+    await notify({
+      userId: post.authorId,
+      actorId: req.user.userId,
+      type: 'COMMENT',
+      title: (n) => `Comment ใหม่ (${n})`,
+      body,
+      targetType: 'post',
+      targetId: post.id,
+      aggregate: true,
+    });
+  }
+};
+
+// DELETE /api/posts/:id/comments/:commentId — เจ้าของคอมเมนต์หรือ ADMIN (คำตอบใต้คอมเมนต์ถูกลบด้วย)
+exports.removeComment = async (req, res) => {
+  const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
+  if (!comment || comment.postId !== req.params.id) return res.status(404).json({ message: 'ไม่พบความคิดเห็น' });
+  if (!canModify(req, comment.authorId)) return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบความคิดเห็นนี้' });
+
+  await prisma.comment.delete({ where: { id: comment.id } });
+  const commentCount = await prisma.comment.count({ where: { postId: comment.postId } });
+  res.json({ commentCount });
+};

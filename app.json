@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "LawAppAI",
+    "slug": "LawAppAI",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "lawappai",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "แอปต้องการเข้าถึงรูปภาพเพื่อแนบรูปในโพสต์"
+        }
+      ],
+      "expo-sharing"
+    ]
+  }
+}
