@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { categoryName } from '../../utils/labels';
 
 // ปกหนังสือที่แอปวาดเอง (ไม่ใช้รูปปกหนังสือขายจริงที่มีลิขสิทธิ์) — สีตามหมวด
 export default function BookCover({ ebook, width = 110 }) {

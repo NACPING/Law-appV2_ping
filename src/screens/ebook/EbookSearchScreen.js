@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ebookService from '../../services/ebookService';
 import { useTheme, useThemedStyles } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { categoryName } from '../../utils/labels';
 
 // extend: Search e-book — ค้นหาชื่อ/คำอธิบายหนังสือ (หน้า reading_search ใน Figma)
 export default function EbookSearchScreen({ navigation }) {

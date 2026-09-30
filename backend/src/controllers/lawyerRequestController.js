@@ -17,7 +17,10 @@ const refOf = (id) => `REQ-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
 // ข้อความล่าสุดในแชท (สำหรับรายการแชท) — แสดงเฉพาะคนในเคส admin ไม่เห็นเนื้อหาแชท
 const lastMessagePreview = (m) =>
   m && {
-    text: m.text ?? (m.fileKind === 'pdf' ? '[ไฟล์ PDF]' : '[รูปภาพ]'),
+    // แอปแปลงเป็นข้อความตามภาษาเอง: ข้อความระบบ (systemCode) / ไฟล์ (fileKind)
+    text: m.text,
+    systemCode: m.systemCode,
+    fileKind: m.fileKind,
     senderId: m.senderId,
     createdAt: m.createdAt,
   };
@@ -60,11 +63,11 @@ exports.create = async (req, res) => {
   const message = String(req.body?.message ?? '').trim();
 
   if (!subject || !events) {
-    return res.status(400).json({ message: 'กรุณากรอกหัวข้อและลำดับเหตุการณ์' });
+    return res.status(400).json({ message: req.t('request.subjectEvents') });
   }
   if (subject.length > MAX_SUBJECT || events.length > MAX_EVENTS || message.length > MAX_MESSAGE) {
     return res.status(400).json({
-      message: `หัวข้อไม่เกิน ${MAX_SUBJECT} ตัว, ลำดับเหตุการณ์ไม่เกิน ${MAX_EVENTS} ตัว, ข้อความไม่เกิน ${MAX_MESSAGE} ตัว`,
+      message: req.t('request.tooLong', { subject: MAX_SUBJECT, events: MAX_EVENTS, message: MAX_MESSAGE }),
     });
   }
 
@@ -81,8 +84,7 @@ exports.create = async (req, res) => {
       userId: admin.id,
       actorId: req.user.userId,
       type: 'NEW_REQUEST',
-      title: 'มีคำขอปรึกษาใหม่รอพิจารณา',
-      body: `${nameOf(request.client)}: "${preview(subject)}"`,
+      params: { name: nameOf(request.client), subject: preview(subject) },
       targetType: 'request',
       targetId: request.id,
     });
@@ -98,7 +100,7 @@ exports.list = async (req, res) => {
   const withLastMessage =
     req.user.role === 'ADMIN'
       ? include
-      : { ...include, messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { text: true, fileKind: true, senderId: true, createdAt: true } } };
+      : { ...include, messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { text: true, systemCode: true, fileKind: true, senderId: true, createdAt: true } } };
   const requests = await prisma.lawyerRequest.findMany({ where, orderBy: { createdAt: 'desc' }, include: withLastMessage });
   res.json({ requests: requests.map(toDto) });
 };
@@ -106,7 +108,7 @@ exports.list = async (req, res) => {
 // GET /api/lawyer-requests/:id
 exports.detail = async (req, res) => {
   const request = await findVisible(req);
-  if (!request) return res.status(404).json({ message: 'ไม่พบคำขอ' });
+  if (!request) return res.status(404).json({ message: req.t('request.notFound') });
   res.json({ request: toDto(request) });
   await markRead(req.user.userId, { targetType: 'request', targetId: request.id }); // เปิดดูแล้ว = อ่านแล้ว
 };
@@ -114,9 +116,9 @@ exports.detail = async (req, res) => {
 // DELETE /api/lawyer-requests/:id — ลูกความยกเลิกคำขอของตัวเองได้ระหว่างรอตรวจสอบ
 exports.cancel = async (req, res) => {
   const request = await findVisible(req);
-  if (!request || request.clientId !== req.user.userId) return res.status(404).json({ message: 'ไม่พบคำขอ' });
+  if (!request || request.clientId !== req.user.userId) return res.status(404).json({ message: req.t('request.notFound') });
   if (request.status !== 'PENDING') {
-    return res.status(409).json({ message: 'ยกเลิกได้เฉพาะคำขอที่ยังรอตรวจสอบ' });
+    return res.status(409).json({ message: req.t('request.cancelOnlyPending') });
   }
   await prisma.lawyerRequest.delete({ where: { id: request.id } });
   await removeForTarget('request', request.id); // admin ไม่ต้องเห็นคำขอที่ถูกยกเลิกแล้ว
@@ -145,11 +147,11 @@ exports.lawyers = async (req, res) => {
 async function findPending(req, res) {
   const request = await prisma.lawyerRequest.findUnique({ where: { id: req.params.id } });
   if (!request) {
-    res.status(404).json({ message: 'ไม่พบคำขอ' });
+    res.status(404).json({ message: req.t('request.notFound') });
     return null;
   }
   if (request.status !== 'PENDING') {
-    res.status(409).json({ message: 'คำขอนี้ได้รับการพิจารณาไปแล้ว' });
+    res.status(409).json({ message: req.t('request.alreadyReviewed') });
     return null;
   }
   return request;
@@ -162,14 +164,14 @@ exports.approve = async (req, res) => {
 
   const lawyer = await prisma.user.findUnique({ where: { id: String(req.body?.lawyerId ?? '') } });
   if (!lawyer || lawyer.role !== 'LAWYER') {
-    return res.status(400).json({ message: 'กรุณาเลือกทนายที่จะมอบหมาย' });
+    return res.status(400).json({ message: req.t('request.chooseLawyer') });
   }
 
   const { count } = await prisma.lawyerRequest.updateMany({
     where: { id: request.id, status: 'PENDING' },
     data: { status: 'APPROVED', lawyerId: lawyer.id, reviewedById: req.user.userId, reviewedAt: new Date() },
   });
-  if (count === 0) return res.status(409).json({ message: 'คำขอนี้ได้รับการพิจารณาไปแล้ว' });
+  if (count === 0) return res.status(409).json({ message: req.t('request.alreadyReviewed') });
 
   const updated = await prisma.lawyerRequest.findUnique({ where: { id: request.id }, include });
   res.json({ request: toDto(updated) });
@@ -179,8 +181,7 @@ exports.approve = async (req, res) => {
     userId: updated.clientId,
     actorId: req.user.userId,
     type: 'REQUEST_APPROVED',
-    title: 'ทนายรับเรื่องแล้ว',
-    body: `${nameOf(updated.lawyer)} จะดูแลเรื่อง "${preview(updated.subject, 40)}" — แตะเพื่อเริ่มแชท`,
+    params: { name: nameOf(updated.lawyer), subject: preview(updated.subject, 40) },
     targetType: 'chat',
     targetId: updated.id,
   });
@@ -188,8 +189,7 @@ exports.approve = async (req, res) => {
     userId: updated.lawyerId,
     actorId: req.user.userId,
     type: 'CASE_ASSIGNED',
-    title: 'ได้รับมอบหมายเคสใหม่',
-    body: `${nameOf(updated.client)}: "${preview(updated.subject)}"`,
+    params: { name: nameOf(updated.client), subject: preview(updated.subject) },
     targetType: 'request',
     targetId: updated.id,
   });
@@ -202,14 +202,17 @@ exports.approve = async (req, res) => {
 
 // เปลี่ยนสถานะแบบมีเงื่อนไข (กันกดซ้ำ/สองฝ่ายกดพร้อมกัน) แล้วแจ้งทุกคนในห้อง
 // notification(updated) = การแจ้งเตือนถึงอีกฝ่าย, staleFor(updated) = ผู้ใช้ที่แจ้งเตือน "ขอปิดเคส" เดิมหมดความหมายแล้ว
-async function transitionCase(req, res, { where, data, notFound, conflict, systemText, notification, staleFor }) {
+// conflict = key ข้อความใน i18n, systemCode = รหัสข้อความระบบในแชท
+async function transitionCase(req, res, { where, data, conflict, systemCode, notification, staleFor }) {
   const { count } = await prisma.lawyerRequest.updateMany({ where: { id: req.params.id, ...where }, data });
   if (count === 0) {
     const mine = await prisma.lawyerRequest.findFirst({ where: { id: req.params.id, ...visibilityFilter(req.user) } });
-    return mine ? res.status(409).json({ message: conflict }) : res.status(404).json({ message: notFound });
+    return mine
+      ? res.status(409).json({ message: req.t(conflict) })
+      : res.status(404).json({ message: req.t('request.notFound') });
   }
   const updated = await prisma.lawyerRequest.findUnique({ where: { id: req.params.id }, include });
-  await postSystemMessage(req, updated.id, req.user.userId, systemText);
+  await postSystemMessage(req, updated.id, req.user.userId, systemCode);
   emitToChat(updated.id, 'chat:status', {
     requestId: updated.id,
     status: updated.status,
@@ -232,14 +235,12 @@ exports.requestClose = (req, res) =>
   transitionCase(req, res, {
     where: { lawyerId: req.user.userId, status: 'APPROVED', closeRequestedAt: null },
     data: { closeRequestedAt: new Date() },
-    notFound: 'ไม่พบคำขอ',
-    conflict: 'ส่งคำขอปิดเคสไปแล้วหรือเคสนี้ปิดแล้ว',
-    systemText: 'ทนายขอปิดเคส — รอลูกความยินยอม',
+    conflict: 'request.closeAlready',
+    systemCode: 'CLOSE_REQUESTED',
     notification: (r) => ({
       userId: r.clientId,
       type: 'CLOSE_REQUESTED',
-      title: 'ทนายขอปิดเคส',
-      body: `${nameOf(r.lawyer)} ขอปิดเคส "${preview(r.subject, 40)}" — แตะเพื่อยินยอมหรือไม่ยินยอม`,
+      params: { name: nameOf(r.lawyer), subject: preview(r.subject, 40) },
     }),
   });
 
@@ -248,15 +249,13 @@ exports.cancelClose = (req, res) =>
   transitionCase(req, res, {
     where: { lawyerId: req.user.userId, status: 'APPROVED', closeRequestedAt: { not: null } },
     data: { closeRequestedAt: null },
-    notFound: 'ไม่พบคำขอ',
-    conflict: 'ไม่มีคำขอปิดเคสที่รอการตอบ',
-    systemText: 'ทนายยกเลิกคำขอปิดเคส',
+    conflict: 'request.closeNoPending',
+    systemCode: 'CLOSE_CANCELLED',
     staleFor: (r) => r.clientId,
     notification: (r) => ({
       userId: r.clientId,
       type: 'CLOSE_CANCELLED',
-      title: 'ทนายยกเลิกคำขอปิดเคส',
-      body: `เรื่อง "${preview(r.subject, 40)}" ยังดำเนินต่อตามปกติ`,
+      params: { subject: preview(r.subject, 40) },
     }),
   });
 
@@ -266,15 +265,13 @@ exports.respondClose = (req, res) => {
   return transitionCase(req, res, {
     where: { clientId: req.user.userId, status: 'APPROVED', closeRequestedAt: { not: null } },
     data: accept ? { status: 'CLOSED', closedAt: new Date(), closeRequestedAt: null } : { closeRequestedAt: null },
-    notFound: 'ไม่พบคำขอ',
-    conflict: 'ไม่มีคำขอปิดเคสที่รอการตอบ (ทนายอาจยกเลิกไปแล้ว)',
-    systemText: accept ? 'ลูกความยินยอม — ปิดเคสแล้ว' : 'ลูกความไม่ยินยอมให้ปิดเคส — การปรึกษาดำเนินต่อ',
+    conflict: 'request.closeNoPendingMaybe',
+    systemCode: accept ? 'CLOSE_ACCEPTED' : 'CLOSE_DECLINED',
     staleFor: (r) => r.clientId,
     notification: (r) => ({
       userId: r.lawyerId,
       type: accept ? 'CLOSE_ACCEPTED' : 'CLOSE_DECLINED',
-      title: accept ? 'ลูกความยินยอมปิดเคสแล้ว' : 'ลูกความไม่ยินยอมให้ปิดเคส',
-      body: `${nameOf(r.client)} — เรื่อง "${preview(r.subject, 40)}"${accept ? ' ปิดเรียบร้อย' : ' ยังดำเนินต่อ'}`,
+      params: { name: nameOf(r.client), subject: preview(r.subject, 40) },
     }),
   });
 };
@@ -282,8 +279,8 @@ exports.respondClose = (req, res) => {
 // PATCH /api/lawyer-requests/:id/reject { reason } — admin ปฏิเสธพร้อมเหตุผล (ลูกความจะเห็นเหตุผล)
 exports.reject = async (req, res) => {
   const reason = String(req.body?.reason ?? '').trim();
-  if (!reason) return res.status(400).json({ message: 'กรุณาระบุเหตุผลที่ปฏิเสธ' });
-  if (reason.length > 500) return res.status(400).json({ message: 'เหตุผลไม่เกิน 500 ตัวอักษร' });
+  if (!reason) return res.status(400).json({ message: req.t('request.reasonRequired') });
+  if (reason.length > 500) return res.status(400).json({ message: req.t('request.reasonTooLong') });
 
   const request = await findPending(req, res);
   if (!request) return;
@@ -292,7 +289,7 @@ exports.reject = async (req, res) => {
     where: { id: request.id, status: 'PENDING' },
     data: { status: 'REJECTED', rejectReason: reason, reviewedById: req.user.userId, reviewedAt: new Date() },
   });
-  if (count === 0) return res.status(409).json({ message: 'คำขอนี้ได้รับการพิจารณาไปแล้ว' });
+  if (count === 0) return res.status(409).json({ message: req.t('request.alreadyReviewed') });
 
   const updated = await prisma.lawyerRequest.findUnique({ where: { id: request.id }, include });
   res.json({ request: toDto(updated) });
@@ -301,8 +298,7 @@ exports.reject = async (req, res) => {
     userId: updated.clientId,
     actorId: req.user.userId,
     type: 'REQUEST_REJECTED',
-    title: 'คำขอปรึกษาไม่ได้รับการอนุมัติ',
-    body: `"${preview(updated.subject, 40)}" — เหตุผล: ${preview(reason)}`,
+    params: { subject: preview(updated.subject, 40), reason: preview(reason) },
     targetType: 'request',
     targetId: updated.id,
   });

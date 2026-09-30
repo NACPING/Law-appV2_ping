@@ -73,14 +73,14 @@ exports.favorites = async (req, res) => {
 // GET /api/ebooks/:id — หน้า E-Book Details
 exports.detail = async (req, res) => {
   const ebook = await prisma.ebook.findUnique({ where: { id: req.params.id }, include: { category: categorySelect } });
-  if (!ebook) return res.status(404).json({ message: 'ไม่พบหนังสือ' });
+  if (!ebook) return res.status(404).json({ message: req.t('ebook.notFound') });
   res.json({ ebook: toEbookDto(req, ebook, await favoriteIdsOf(req.user.userId)) });
 };
 
 // PUT / DELETE /api/ebooks/:id/favorite — extend: Bookmark e-book (กดซ้ำได้ ผลเหมือนเดิม)
 exports.addFavorite = async (req, res) => {
   const ebook = await prisma.ebook.findUnique({ where: { id: req.params.id }, select: { id: true } });
-  if (!ebook) return res.status(404).json({ message: 'ไม่พบหนังสือ' });
+  if (!ebook) return res.status(404).json({ message: req.t('ebook.notFound') });
   await prisma.favorite.upsert({
     where: { userId_ebookId: { userId: req.user.userId, ebookId: ebook.id } },
     update: {},

@@ -4,3 +4,6 @@ dist/
 web-build/
 .env
 *.log
+
+# โฟลเดอร์ clone ซ้อนของ repo (ไม่ใช่ส่วนของโปรเจกต์)
+Law-appV2_ping/

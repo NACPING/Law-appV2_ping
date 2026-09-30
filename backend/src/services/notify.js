@@ -6,6 +6,8 @@ const actorSelect = { select: { id: true, firstName: true, lastName: true, role:
 const toDto = (n) => ({
   id: n.id,
   type: n.type,
+  // แอปสร้างหัวข้อ/เนื้อหาจาก type + params ตามภาษาของผู้ใช้ · title/body = ข้อความภาษาไทยของรายการเก่า (ก่อนมี params)
+  params: n.params ? JSON.parse(n.params) : null,
   title: n.title,
   body: n.body,
   targetType: n.targetType,
@@ -25,13 +27,14 @@ async function pushCount(userId) {
 
 /**
  * สร้างการแจ้งเตือน แล้วส่งให้ผู้รับแบบ real-time
- * aggregate: รวมกับรายการเรื่องเดียวกัน (type + targetId) ที่ยังไม่อ่าน — title(count) ใช้สร้างหัวข้อตามจำนวน
+ * params = ข้อมูลประกอบ (ชื่อ, หัวข้อเรื่อง, ข้อความตัวอย่าง) — ไม่เก็บประโยคสำเร็จรูป เพราะผู้รับอาจใช้ภาษาอื่น
+ * aggregate: รวมกับรายการเรื่องเดียวกัน (type + targetId) ที่ยังไม่อ่าน แล้วเพิ่ม count
  * ไม่ส่งถ้าผู้รับคือคนที่ทำเอง และไม่ทำให้คำขอหลักล้มเหลวถ้าส่งแจ้งเตือนไม่สำเร็จ
  */
-async function notify({ userId, actorId = null, type, title, body, targetType, targetId, aggregate = false }) {
+async function notify({ userId, actorId = null, type, params = {}, targetType, targetId, aggregate = false }) {
   if (!userId || userId === actorId) return;
   try {
-    const makeTitle = (count) => (typeof title === 'function' ? title(count) : title);
+    const paramsJson = JSON.stringify(params);
     let notification = null;
 
     if (aggregate) {
@@ -40,14 +43,15 @@ async function notify({ userId, actorId = null, type, title, body, targetType, t
         const count = existing.count + 1;
         notification = await prisma.notification.update({
           where: { id: existing.id },
-          data: { count, title: makeTitle(count), body, actorId },
+          data: { count, params: paramsJson, actorId },
           include: { actor: actorSelect },
         });
       }
     }
     if (!notification) {
       notification = await prisma.notification.create({
-        data: { userId, actorId, type, title: makeTitle(1), body, targetType, targetId },
+        // title/body ต้องมีค่า (คอลัมน์เดิม) — เก็บรหัสไว้เฉยๆ แอปไม่ได้ใช้เมื่อมี params
+        data: { userId, actorId, type, title: type, body: '', params: paramsJson, targetType, targetId },
         include: { actor: actorSelect },
       });
     }
@@ -84,6 +88,7 @@ const preview = (text, max = 60) => {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 };
 
-const nameOf = (u) => (u ? `${u.firstName} ${u.lastName}` : 'ไม่ระบุตัวตน');
+// ผู้ที่ถูกอ้างถึงในการแจ้งเตือนมีตัวตนเสมอ (คนคอมเมนต์/ผู้ส่ง/คู่กรณีในเคส)
+const nameOf = (u) => (u ? `${u.firstName} ${u.lastName}` : '');
 
 module.exports = { notify, markRead, removeForTarget, unreadCount, toDto, actorSelect, preview, nameOf };

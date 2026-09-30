@@ -71,7 +71,7 @@ export default function PostDetailScreen({ route, navigation }) {
     } catch (e) {
       setError(e.message);
     }
-  }, [navigation, postId]);
+  }, [navigation, postId, t]);
 
   useLayoutEffect(() => {
     navigation.setOptions({

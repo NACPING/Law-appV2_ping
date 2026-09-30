@@ -28,23 +28,23 @@ const multerUpload = multer({
   limits: { fileSize: MAX_SIZE_MB * 1024 * 1024, files: MAX_FILES },
   fileFilter: (req, file, cb) => {
     if (EXT_BY_MIME[file.mimetype]) return cb(null, true);
-    const err = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
-    err.message = 'รองรับเฉพาะไฟล์รูปภาพ (jpg, png, webp, gif, heic)';
-    cb(err);
+    cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE')); // ข้อความตามภาษาอยู่ใน MESSAGES
   },
 });
 
+// ข้อความ error ของ multer ตามภาษาของผู้ใช้
 const MESSAGES = {
-  LIMIT_FILE_SIZE: `รูปแต่ละรูปต้องมีขนาดไม่เกิน ${MAX_SIZE_MB} MB`,
-  LIMIT_FILE_COUNT: `แนบรูปได้สูงสุด ${MAX_FILES} รูป`,
+  LIMIT_FILE_SIZE: (req) => req.t('upload.imageSize', { mb: MAX_SIZE_MB }),
+  LIMIT_FILE_COUNT: (req) => req.t('upload.imageCount', { n: MAX_FILES }),
+  LIMIT_UNEXPECTED_FILE: (req) => req.t('upload.imageType'),
 };
 
-// รับรูปในฟิลด์ "images" แล้วแปลง error ของ multer เป็นข้อความภาษาไทย (400)
+// รับรูปในฟิลด์ "images" แล้วแปลง error ของ multer เป็นข้อความที่ผู้ใช้อ่านได้ (400)
 function uploadPostImages(req, res, next) {
   multerUpload.array('images', MAX_FILES)(req, res, (err) => {
     if (!err) return next();
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: MESSAGES[err.code] || err.message });
+      return res.status(400).json({ message: MESSAGES[err.code]?.(req) || err.message });
     }
     next(err);
   });
@@ -55,7 +55,7 @@ function uploadAvatar(req, res, next) {
   multerUpload.single('avatar')(req, res, (err) => {
     if (!err) return next();
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: MESSAGES[err.code] || err.message });
+      return res.status(400).json({ message: MESSAGES[err.code]?.(req) || err.message });
     }
     next(err);
   });

@@ -149,7 +149,7 @@ export default function ChatRoomScreen({ route, navigation }) {
       t('chat.sendRequest')
     );
     if (ok) runCaseAction(() => requestService.requestCloseCase(requestId));
-  }, [requestId, runCaseAction]);
+  }, [requestId, runCaseAction, t]);
 
   const handleCancelClose = () => runCaseAction(() => requestService.cancelCloseCase(requestId));
 
@@ -176,7 +176,7 @@ export default function ChatRoomScreen({ route, navigation }) {
             )
           : undefined,
     });
-  }, [navigation, chat, isLawyer, handleRequestClose, route.params.name, styles]);
+  }, [navigation, chat, isLawyer, handleRequestClose, route.params.name, styles, t]);
 
   const loadOlder = async () => {
     if (!hasMore || loadingOlderRef.current || messages.length === 0) return;

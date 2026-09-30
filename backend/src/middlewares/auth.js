@@ -19,11 +19,11 @@ function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, token] = header.split(' ');
   if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ message: 'กรุณาเข้าสู่ระบบ' });
+    return res.status(401).json({ message: req.t('auth.pleaseLogin') });
   }
 
   const user = verifyUserToken(token);
-  if (!user) return res.status(401).json({ message: 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่' });
+  if (!user) return res.status(401).json({ message: req.t('auth.sessionExpired') });
   req.user = user;
   next();
 }
@@ -31,7 +31,7 @@ function requireAuth(req, res, next) {
 // ใช้หลัง requireAuth เช่น requireRole('ADMIN')
 const requireRole = (...roles) => (req, res, next) => {
   if (!roles.includes(req.user?.role)) {
-    return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึง' });
+    return res.status(403).json({ message: req.t('auth.forbidden') });
   }
   next();
 };

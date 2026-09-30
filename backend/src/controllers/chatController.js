@@ -38,6 +38,7 @@ function toDto(req, m) {
     requestId: m.requestId,
     text: m.text,
     system: m.system,
+    systemCode: m.systemCode, // ข้อความระบบใหม่เก็บเป็นรหัส (แอปแปลเอง) — ข้อมูลเก่ามีแค่ text
     sender: m.sender,
     file: m.filePath
       ? { kind: m.fileKind, name: m.fileName, mime: m.fileMime, size: m.fileSize, url: fileUrl(req, m) }
@@ -47,9 +48,10 @@ function toDto(req, m) {
 }
 
 // บันทึกข้อความระบบ (เช่น ขั้นตอนปิดเคส) แล้วส่งให้ทั้งสองฝ่ายแบบ real-time
-exports.postSystemMessage = async (req, requestId, actorId, text) => {
+// systemCode เช่น CLOSE_REQUESTED — แต่ละฝ่ายเห็นเป็นภาษาของตัวเอง
+exports.postSystemMessage = async (req, requestId, actorId, systemCode) => {
   const message = await prisma.message.create({
-    data: { requestId, senderId: actorId, text, system: true },
+    data: { requestId, senderId: actorId, systemCode, system: true },
     include: { sender: senderSelect },
   });
   emitToChat(requestId, 'message:new', toDto(req, message));
@@ -58,14 +60,14 @@ exports.postSystemMessage = async (req, requestId, actorId, text) => {
 // ตรวจสิทธิ์เข้าห้องแชท แล้วแนบ req.chat — ใส่ก่อน multer เพื่อไม่ให้มีไฟล์ค้างเมื่อไม่มีสิทธิ์
 exports.loadChat = async (req, res, next) => {
   const chat = await findChatForUser(req.params.requestId, req.user.userId);
-  if (!chat) return res.status(404).json({ message: 'ไม่พบห้องแชท' });
+  if (!chat) return res.status(404).json({ message: req.t('chat.notFound') });
   req.chat = chat;
   next();
 };
 
 exports.requireOpenChat = (req, res, next) => {
   if (req.chat.status === 'CLOSED') {
-    return res.status(409).json({ message: 'เคสนี้ปิดแล้ว ส่งข้อความเพิ่มไม่ได้' });
+    return res.status(409).json({ message: req.t('chat.caseClosed') });
   }
   next();
 };
@@ -111,10 +113,10 @@ exports.send = async (req, res) => {
   const text = String(req.body?.text ?? '').trim();
   const file = req.file;
 
-  if (!text && !file) return res.status(400).json({ message: 'กรุณาพิมพ์ข้อความหรือแนบไฟล์' });
+  if (!text && !file) return res.status(400).json({ message: req.t('chat.textOrFile') });
   if (text.length > MAX_TEXT) {
     removeChatFile(file?.filename);
-    return res.status(400).json({ message: `ข้อความไม่เกิน ${MAX_TEXT} ตัวอักษร` });
+    return res.status(400).json({ message: req.t('chat.textTooLong', { max: MAX_TEXT }) });
   }
 
   try {
@@ -140,13 +142,12 @@ exports.send = async (req, res) => {
     // แจ้งอีกฝ่าย (รวมเป็นรายการเดียวต่อห้อง เช่น "ได้รับข้อความใหม่ (3)") — ถ้าเปิดห้องนี้อยู่ไม่ต้องแจ้ง
     const recipientId = req.chat.clientId === req.user.userId ? req.chat.lawyerId : req.chat.clientId;
     if (!(await isUserInChat(req.chat.id, recipientId))) {
-      const what = text || (file.kind === 'pdf' ? '[ไฟล์ PDF]' : '[รูปภาพ]');
       await notify({
         userId: recipientId,
         actorId: req.user.userId,
         type: 'CHAT_MESSAGE',
-        title: (n) => (n > 1 ? `ได้รับข้อความใหม่ (${n})` : 'ได้รับข้อความใหม่'),
-        body: `${nameOf(message.sender)}: ${preview(what)}`,
+        // ไฟล์แนบ: ส่งชนิดไฟล์ไป แอปแสดงเป็น [รูปภาพ]/[ไฟล์ PDF] ตามภาษา
+        params: text ? { name: nameOf(message.sender), preview: preview(text) } : { name: nameOf(message.sender), fileKind: file.kind },
         targetType: 'chat',
         targetId: req.chat.id,
         aggregate: true,
@@ -164,13 +165,13 @@ exports.file = async (req, res) => {
     const payload = jwt.verify(String(req.query.token ?? ''), FILE_SECRET);
     if (payload.mid !== req.params.messageId) throw new Error('mismatch');
   } catch {
-    return res.status(403).json({ message: 'ลิงก์ไฟล์หมดอายุ กรุณาเปิดห้องแชทใหม่' });
+    return res.status(403).json({ message: req.t('chat.fileLinkExpired') });
   }
 
   const message = await prisma.message.findUnique({ where: { id: req.params.messageId } });
   const storedName = message?.filePath && path.basename(message.filePath);
   if (!storedName || !fs.existsSync(path.join(CHAT_DIR, storedName))) {
-    return res.status(404).json({ message: 'ไม่พบไฟล์' });
+    return res.status(404).json({ message: req.t('chat.fileNotFound') });
   }
 
   res.set({

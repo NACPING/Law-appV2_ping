@@ -12,11 +12,13 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { UPLOAD_DIR } = require('./middlewares/upload');
 const { initRealtime } = require('./realtime');
+const { languageMiddleware } = require('./i18n');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(languageMiddleware); // req.t() — ตอบข้อความตามภาษาที่แอปเลือก (header Accept-Language)
 
 // รูปที่ผู้ใช้อัปโหลด (ชื่อไฟล์สุ่ม) — <Image> ในแอปส่ง token ไม่ได้ จึงเปิดให้โหลดได้โดยไม่ต้องล็อกอิน
 app.use('/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d', setHeaders: (res) => res.set('X-Content-Type-Options', 'nosniff') }));
@@ -38,7 +40,7 @@ app.use((req, res) => res.status(404).json({ message: 'Not found' }));
 // Express 5 ส่ง error จาก async handler มาที่นี่อัตโนมัติ
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ message: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' });
+  res.status(500).json({ message: req.t('server.internal') });
 });
 
 // ใช้ http server ตัวเดียวกันทั้ง REST และ socket.io (แชท real-time)

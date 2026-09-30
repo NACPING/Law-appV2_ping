@@ -55,6 +55,9 @@ model Notification {
   targetType String
   targetId   String
   count      Int       @default(1)
+  // ข้อมูลประกอบ (JSON) เช่น ชื่อผู้ส่ง หัวข้อเรื่อง — แอปสร้างข้อความตามภาษาของผู้ใช้เอง
+  // (รายการเก่าที่ไม่มี params ใช้ title/body ภาษาไทยที่เก็บไว้)
+  params     String?
   readAt     DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -101,6 +104,7 @@ model Message {
   sender    User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
   text      String?
   system    Boolean       @default(false) // ข้อความระบบ เช่น "ทนายขอปิดเคส" (senderId = ผู้ทำรายการ)
+  systemCode String? // รหัสข้อความระบบ เช่น CLOSE_REQUESTED — แอปแปลตามภาษา (ข้อมูลเก่าใช้ text)
   fileKind  String? // "image" | "pdf"
   fileName  String? // ชื่อไฟล์เดิม (แสดงผล)
   fileMime  String?

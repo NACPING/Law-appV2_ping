@@ -15,7 +15,7 @@ const RECENT_LIMIT = 30;
 // โพสต์ไม่ระบุตัวตนไม่แสดงให้คนอื่นเห็นเลย (ไม่งั้นจะรู้ว่าใครเขียน)
 exports.profile = async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.params.id } });
-  if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+  if (!user) return res.status(404).json({ message: req.t('auth.userNotFound') });
 
   const isSelf = user.id === req.user.userId;
   const isLawyer = user.role === 'LAWYER';
@@ -67,7 +67,7 @@ exports.profile = async (req, res) => {
 // PATCH /api/users/me — แก้ไขโปรไฟล์ (อีเมล, เลขบัตร, บทบาท แก้ไม่ได้)
 exports.updateMe = async (req, res) => {
   const me = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  if (!me) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+  if (!me) return res.status(404).json({ message: req.t('auth.userNotFound') });
 
   const body = req.body ?? {};
   const data = {};
@@ -84,19 +84,19 @@ exports.updateMe = async (req, res) => {
   }
 
   if (data.firstName === '' || data.lastName === '') {
-    return res.status(400).json({ message: 'กรุณากรอกชื่อและนามสกุล' });
+    return res.status(400).json({ message: req.t('user.nameRequired') });
   }
   if ((data.firstName ?? '').length > MAX_NAME || (data.lastName ?? '').length > MAX_NAME) {
-    return res.status(400).json({ message: `ชื่อและนามสกุลไม่เกิน ${MAX_NAME} ตัวอักษร` });
+    return res.status(400).json({ message: req.t('user.nameTooLong', { max: MAX_NAME }) });
   }
   if (data.phone && !PHONE_PATTERN.test(data.phone)) {
-    return res.status(400).json({ message: 'เบอร์โทรใช้ได้เฉพาะตัวเลข + - และเว้นวรรค (ไม่เกิน 20 ตัว)' });
+    return res.status(400).json({ message: req.t('user.phoneFormat') });
   }
   if ((data.bio ?? '').length > MAX_BIO) {
-    return res.status(400).json({ message: `คำแนะนำตัวไม่เกิน ${MAX_BIO} ตัวอักษร` });
+    return res.status(400).json({ message: req.t('user.bioTooLong', { max: MAX_BIO }) });
   }
   if ((data.about ?? '').length > MAX_ABOUT) {
-    return res.status(400).json({ message: `รายละเอียดทนายไม่เกิน ${MAX_ABOUT} ตัวอักษร` });
+    return res.status(400).json({ message: req.t('user.aboutTooLong', { max: MAX_ABOUT }) });
   }
 
   const user = await prisma.user.update({ where: { id: me.id }, data });
@@ -105,13 +105,13 @@ exports.updateMe = async (req, res) => {
 
 // PUT /api/users/me/avatar (multipart, ฟิลด์ "avatar") — เปลี่ยนรูปโปรไฟล์ แล้วลบไฟล์รูปเก่า
 exports.updateAvatar = async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'กรุณาเลือกรูปภาพ' });
+  if (!req.file) return res.status(400).json({ message: req.t('user.chooseImage') });
   const url = `/uploads/${req.file.filename}`;
 
   const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { avatarUrl: true } });
   if (!me) {
     removeUploadedFiles([url]);
-    return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+    return res.status(404).json({ message: req.t('auth.userNotFound') });
   }
   const user = await prisma.user.update({ where: { id: req.user.userId }, data: { avatarUrl: url } });
   if (me.avatarUrl) removeUploadedFiles([me.avatarUrl]);
@@ -121,7 +121,7 @@ exports.updateAvatar = async (req, res) => {
 // DELETE /api/users/me/avatar — กลับไปใช้รูปตัวอักษรแรกของชื่อ
 exports.removeAvatar = async (req, res) => {
   const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { avatarUrl: true } });
-  if (!me) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+  if (!me) return res.status(404).json({ message: req.t('auth.userNotFound') });
   const user = await prisma.user.update({ where: { id: req.user.userId }, data: { avatarUrl: null } });
   if (me.avatarUrl) removeUploadedFiles([me.avatarUrl]);
   res.json({ user: publicUser(user) });
@@ -131,17 +131,17 @@ exports.removeAvatar = async (req, res) => {
 exports.changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body ?? {};
   if (!currentPassword || !newPassword) {
-    return res.status(400).json({ message: 'กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่' });
+    return res.status(400).json({ message: req.t('user.passwordFields') });
   }
   if (String(newPassword).length < 6) {
-    return res.status(400).json({ message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' });
+    return res.status(400).json({ message: req.t('user.newPasswordShort') });
   }
 
   const me = await prisma.user.findUnique({ where: { id: req.user.userId } });
   if (!me || !(await bcrypt.compare(String(currentPassword), me.password))) {
-    return res.status(400).json({ message: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+    return res.status(400).json({ message: req.t('user.currentPasswordWrong') });
   }
 
   await prisma.user.update({ where: { id: me.id }, data: { password: await bcrypt.hash(String(newPassword), 10) } });
-  res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+  res.json({ message: req.t('user.passwordChanged') });
 };

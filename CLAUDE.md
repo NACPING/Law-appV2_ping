@@ -29,13 +29,16 @@ src/
                 profile (UserProfileScreen ใช้ทั้งโปรไฟล์ตัวเองและคนอื่น, Settings, EditProfile, ChangePassword, Help)
   components/   ใช้ซ้ำ — KeyboardAware, BellButton, chat/*, community/*, consult/*, ebook/*
   context/      AuthContext (user, token), NotificationContext (ตัวเลขบนกระดิ่ง, real-time),
-                ThemeContext (Dark mode: useTheme, useThemedStyles)
+                ThemeContext (Dark mode: useTheme, useThemedStyles), LanguageContext (useLanguage → t)
   theme/        colors (lightColors/darkColors), typography (ฟอนต์ชื่อหน้า)
+  i18n/         th.js / en.js (ข้อความทุกจุด key ตรงกัน), index.js (translate, localeOf)
+  utils/labels  แปลงข้อมูลจาก backend เป็นข้อความตามภาษา (แจ้งเตือน, ข้อความระบบแชท, ชื่อหมวดหนังสือ)
   services/     เรียก API ทั้งหมดผ่าน apiClient.request() · socket.js = socket.io ตัวเดียวทั้งแอป
   utils/        formFile (แนบไฟล์ใน FormData), downloadPdf, format (timeAgo, confirmAction)
 backend/src/
   controllers/  auth, post, ebook, lawyerRequest (รวมปิดเคส), chat, notification, user (โปรไฟล์)
-  services/notify.js   สร้าง/รวม/ส่งการแจ้งเตือน
+  services/notify.js   สร้าง/รวม/ส่งการแจ้งเตือน (เก็บ type + params ไม่เก็บประโยค)
+  i18n.js              ข้อความ error ไทย/อังกฤษ — req.t(key) ตาม header Accept-Language
   realtime.js          socket.io: ห้อง request:<id> (แชท), user:<id> (แจ้งเตือน)
 backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 ```
@@ -70,6 +73,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 - **Android edge-to-edge:** คีย์บอร์ดไม่ดันหน้าจอเอง → ใช้ `components/KeyboardAware` แทน KeyboardAvoidingView ทุกหน้า
 - **ช่องพิมพ์หลายบรรทัด (multiline)** ต้องมี `maxHeight` และเลื่อน ScrollView ไปที่ช่องตอน `onFocus` (ดู EditProfileScreen/CreatePostScreen) — ไม่งั้นพิมพ์ยาวแล้วช่องขยายจนโดนคีย์บอร์ดบัง
 - **Dark mode: ห้ามเขียนสีตรงๆ** — สไตล์เขียนเป็น `const makeStyles = (c) => StyleSheet.create({...})` แล้ว `useThemedStyles(makeStyles)` ใน component · สีใน JSX ใช้ `const { colors } = useTheme()` · ตัวอักษร/ไอคอนสีแบรนด์ใช้ `accent` (ไม่ใช่ `primary` ซึ่งมืดเกินบนพื้นมืด) · `navigation.setOptions` ใน useLayoutEffect ต้องใส่ `colors`/`styles` ใน deps ไม่งั้นปุ่มบน header ค้างสีเดิม
+- **ภาษา (ไทย/อังกฤษ): ห้ามเขียนข้อความตรงๆ** — แอปใช้ `t('key')` + เพิ่ม key ทั้ง `i18n/th.js` และ `en.js` · backend ใช้ `req.t('key')` (`backend/src/i18n.js`) · การแจ้งเตือน/ข้อความระบบใหม่ เก็บเป็นรหัส + params แล้วเพิ่มคำแปลใน `notif.*` / `chat.system.*` · component ที่แสดงข้อความผ่าน utils (timeAgo, displayName) ต้องเรียก `useLanguage()` ไม่งั้นไม่ render ใหม่ตอนเปลี่ยนภาษา
 - **Android:** ปุ่มที่อยู่นอกกรอบของ View แม่ (position absolute ล้นออกไป) **กดไม่ได้** · ใน header ส่วนที่ล้นจะ**ถูกตัดขอบ**ด้วย (เคยเกิดกับตัวเลขบนกระดิ่ง) → เผื่อ padding ให้อยู่ในกรอบ
 - **Expo Go Android + expo-document-picker:** `copyToCacheDirectory: true` ทำให้อ่านไฟล์ไม่ได้ ("Missing 'READ' permission") → ใช้ `false` บน Android
 - **WebView ของ Android แสดง PDF ไม่ได้** → ตัวอ่าน PDF ใช้ pdf.js (`components/ebook/pdfViewerHtml.js`) · บนเว็บใช้ iframe `allow-scripts allow-same-origin`
@@ -80,5 +84,5 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 ## สถานะงาน
 
 เสร็จแล้ว: Register/Login · Posting · Reading (E-Book) · Lawyer_request · Chat · Notification · Profile & Settings (UC-01–08)
-Dark mode ใน Settings เสร็จแล้ว
-ยังไม่ทำ (ตกลงกับเจ้าของแล้ว): เมนู Settings ที่เหลือใน Figma (Notifications, Posting, Reading, Language), ระบบเพื่อน/ผู้ติดตาม
+Dark mode และ Language (ไทย/อังกฤษ) ใน Settings เสร็จแล้ว
+ยังไม่ทำ (ตกลงกับเจ้าของแล้ว): เมนู Settings ที่เหลือใน Figma (Notifications, Posting, Reading), ระบบเพื่อน/ผู้ติดตาม

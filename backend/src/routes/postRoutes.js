@@ -8,7 +8,7 @@ const router = Router();
 // เฉพาะ CLIENT สร้างโพสต์ได้ — ทนายทำได้แค่คอมเมนต์
 const clientsOnly = (req, res, next) => {
   if (req.user.role === 'CLIENT') return next();
-  res.status(403).json({ message: 'ทนายความไม่สามารถสร้างโพสต์ได้ แต่แสดงความคิดเห็นได้' });
+  res.status(403).json({ message: req.t('post.lawyerCannotPost') });
 };
 
 router.use(requireAuth);

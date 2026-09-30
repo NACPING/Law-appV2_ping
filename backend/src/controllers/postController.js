@@ -66,7 +66,7 @@ exports.detail = async (req, res) => {
       comments: { orderBy: { createdAt: 'asc' }, include: { author: authorSelect } },
     },
   });
-  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+  if (!post) return res.status(404).json({ message: req.t('post.notFound') });
 
   res.json({
     post: toPostDto(req, post),
@@ -86,9 +86,9 @@ exports.create = async (req, res) => {
   const isAnonymous = req.body?.isAnonymous === true || req.body?.isAnonymous === 'true';
 
   let error = '';
-  if (!title || !content) error = 'กรุณากรอกหัวข้อและรายละเอียด';
+  if (!title || !content) error = req.t('post.titleContent');
   else if (title.length > MAX_TITLE || content.length > MAX_CONTENT) {
-    error = `หัวข้อไม่เกิน ${MAX_TITLE} ตัว, รายละเอียดไม่เกิน ${MAX_CONTENT} ตัว`;
+    error = req.t('post.tooLong', { title: MAX_TITLE, content: MAX_CONTENT });
   }
   if (error) {
     removeUploadedFiles(imageUrls);
@@ -116,8 +116,8 @@ exports.create = async (req, res) => {
 // DELETE /api/posts/:id — ลบได้เฉพาะเจ้าของโพสต์หรือ ADMIN (ลบไฟล์รูปด้วย)
 exports.remove = async (req, res) => {
   const post = await prisma.post.findUnique({ where: { id: req.params.id }, include: { images: true } });
-  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
-  if (!canModify(req, post.authorId)) return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบโพสต์นี้' });
+  if (!post) return res.status(404).json({ message: req.t('post.notFound') });
+  if (!canModify(req, post.authorId)) return res.status(403).json({ message: req.t('post.noPermDelete') });
 
   await prisma.post.delete({ where: { id: post.id } });
   removeUploadedFiles(post.images.map((img) => img.url));
@@ -130,22 +130,22 @@ exports.addComment = async (req, res) => {
   const content = String(req.body?.content ?? '').trim();
   const parentId = req.body?.parentId || null;
 
-  if (!content) return res.status(400).json({ message: 'กรุณาพิมพ์ความคิดเห็น' });
+  if (!content) return res.status(400).json({ message: req.t('post.commentEmpty') });
   if (content.length > MAX_COMMENT) {
-    return res.status(400).json({ message: `ความคิดเห็นไม่เกิน ${MAX_COMMENT} ตัวอักษร` });
+    return res.status(400).json({ message: req.t('post.commentTooLong', { max: MAX_COMMENT }) });
   }
 
   const post = await prisma.post.findUnique({
     where: { id: req.params.id },
     select: { id: true, title: true, authorId: true },
   });
-  if (!post) return res.status(404).json({ message: 'ไม่พบโพสต์' });
+  if (!post) return res.status(404).json({ message: req.t('post.notFound') });
 
   let parent = null;
   if (parentId) {
     parent = await prisma.comment.findUnique({ where: { id: parentId } });
     if (!parent || parent.postId !== post.id) {
-      return res.status(400).json({ message: 'ไม่พบความคิดเห็นที่ต้องการตอบกลับ' });
+      return res.status(400).json({ message: req.t('post.replyNotFound') });
     }
   }
 
@@ -156,15 +156,14 @@ exports.addComment = async (req, res) => {
   res.status(201).json({ comment: toCommentDto(req, comment) });
 
   // แจ้งเตือน: คนที่ถูกตอบกลับ (REPLY) และเจ้าของโพสต์ (COMMENT) — ถ้าเป็นคนเดียวกันแจ้งแค่ REPLY
-  const who = nameOf(comment.author);
-  const body = `${who}: "${preview(content)}" — ในโพสต์ "${preview(post.title, 40)}"`;
+  // เก็บเป็นข้อมูลประกอบ — แอปสร้างข้อความตามภาษาของผู้รับเอง
+  const params = { name: nameOf(comment.author), preview: preview(content), postTitle: preview(post.title, 40) };
   if (parent) {
     await notify({
       userId: parent.authorId,
       actorId: req.user.userId,
       type: 'REPLY',
-      title: (n) => (n > 1 ? `มีคนตอบกลับความคิดเห็นของคุณ (${n})` : 'มีคนตอบกลับความคิดเห็นของคุณ'),
-      body,
+      params,
       targetType: 'post',
       targetId: post.id,
       aggregate: true,
@@ -175,8 +174,7 @@ exports.addComment = async (req, res) => {
       userId: post.authorId,
       actorId: req.user.userId,
       type: 'COMMENT',
-      title: (n) => `Comment ใหม่ (${n})`,
-      body,
+      params,
       targetType: 'post',
       targetId: post.id,
       aggregate: true,
@@ -187,8 +185,8 @@ exports.addComment = async (req, res) => {
 // DELETE /api/posts/:id/comments/:commentId — เจ้าของคอมเมนต์หรือ ADMIN (คำตอบใต้คอมเมนต์ถูกลบด้วย)
 exports.removeComment = async (req, res) => {
   const comment = await prisma.comment.findUnique({ where: { id: req.params.commentId } });
-  if (!comment || comment.postId !== req.params.id) return res.status(404).json({ message: 'ไม่พบความคิดเห็น' });
-  if (!canModify(req, comment.authorId)) return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบความคิดเห็นนี้' });
+  if (!comment || comment.postId !== req.params.id) return res.status(404).json({ message: req.t('post.commentNotFound') });
+  if (!canModify(req, comment.authorId)) return res.status(403).json({ message: req.t('post.noPermDeleteComment') });
 
   await prisma.comment.delete({ where: { id: comment.id } });
   const commentCount = await prisma.comment.count({ where: { postId: comment.postId } });

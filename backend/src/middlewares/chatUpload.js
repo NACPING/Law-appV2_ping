@@ -48,15 +48,15 @@ const upload = multer({
   defParamCharset: 'utf8', // ชื่อไฟล์ภาษาไทยไม่เพี้ยน
   fileFilter: (req, file, cb) => {
     if (ACCEPTED_MIMES.has(file.mimetype ?? '')) return cb(null, true);
-    const err = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
-    err.message = 'แนบได้เฉพาะรูปภาพหรือไฟล์ PDF';
-    cb(err);
+    cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE')); // ข้อความตามภาษาอยู่ใน MESSAGES
   },
 });
 
+// ข้อความ error ของ multer ตามภาษาของผู้ใช้
 const MESSAGES = {
-  LIMIT_FILE_SIZE: `ไฟล์ต้องมีขนาดไม่เกิน ${MAX_SIZE_MB} MB`,
-  LIMIT_FILE_COUNT: 'แนบได้ครั้งละ 1 ไฟล์',
+  LIMIT_FILE_SIZE: (req) => req.t('upload.chatFileSize', { mb: MAX_SIZE_MB }),
+  LIMIT_FILE_COUNT: (req) => req.t('upload.chatFileCount'),
+  LIMIT_UNEXPECTED_FILE: (req) => req.t('upload.chatFileType'),
 };
 
 const removeChatFile = (storedName) => {
@@ -67,7 +67,7 @@ const removeChatFile = (storedName) => {
 function uploadChatFile(req, res, next) {
   upload.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: MESSAGES[err.code] || err.message });
+      return res.status(400).json({ message: MESSAGES[err.code]?.(req) || err.message });
     }
     if (err) return next(err);
     if (!req.file) return next();
@@ -80,7 +80,7 @@ function uploadChatFile(req, res, next) {
     const type = detectType(head.subarray(0, read));
     if (!type) {
       removeChatFile(req.file.filename);
-      return res.status(400).json({ message: 'แนบได้เฉพาะรูปภาพหรือไฟล์ PDF (ไฟล์นี้ไม่ใช่รูปหรือ PDF ที่ถูกต้อง)' });
+      return res.status(400).json({ message: req.t('upload.chatFileInvalid') });
     }
     req.file.kind = type.kind;
     req.file.mimetype = type.mime;

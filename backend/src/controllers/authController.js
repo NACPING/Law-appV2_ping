@@ -32,26 +32,26 @@ exports.register = async (req, res) => {
   const normalizedRole = String(role ?? 'CLIENT').toUpperCase();
 
   if (!idCardOrPass || !firstName || !lastName || !normalizedEmail || !password) {
-    return res.status(400).json({ message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
+    return res.status(400).json({ message: req.t('auth.required') });
   }
   if (!EMAIL_PATTERN.test(normalizedEmail)) {
-    return res.status(400).json({ message: 'รูปแบบ Email ไม่ถูกต้อง' });
+    return res.status(400).json({ message: req.t('auth.emailFormat') });
   }
   if (String(password).length < 6) {
-    return res.status(400).json({ message: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+    return res.status(400).json({ message: req.t('auth.passwordShort') });
   }
   if (!SELF_REGISTER_ROLES.includes(normalizedRole)) {
-    return res.status(400).json({ message: 'บทบาทไม่ถูกต้อง' });
+    return res.status(400).json({ message: req.t('auth.invalidRole') });
   }
   if (dob && !DATE_PATTERN.test(dob)) {
-    return res.status(400).json({ message: 'วันเกิดต้องอยู่ในรูปแบบ YYYY-MM-DD' });
+    return res.status(400).json({ message: req.t('auth.dobFormat') });
   }
 
   const existing = await prisma.user.findFirst({
     where: { OR: [{ email: normalizedEmail }, { idCard: idCardOrPass }] },
   });
   if (existing) {
-    return res.status(409).json({ message: 'Email หรือ ID/Passport นี้ถูกใช้งานแล้ว' });
+    return res.status(409).json({ message: req.t('auth.duplicate') });
   }
 
   const user = await prisma.user.create({
@@ -67,7 +67,7 @@ exports.register = async (req, res) => {
     },
   });
 
-  res.status(201).json({ message: 'สมัครสมาชิกสำเร็จ', user: publicUser(user) });
+  res.status(201).json({ message: req.t('auth.registered'), user: publicUser(user) });
 };
 
 // POST /api/auth/login — Use Case: Login (include: verify password)
@@ -76,14 +76,14 @@ exports.login = async (req, res) => {
   const normalizedEmail = String(email ?? '').trim().toLowerCase();
 
   if (!normalizedEmail || !password) {
-    return res.status(400).json({ message: 'กรุณากรอก Email และ Password ให้ครบถ้วน' });
+    return res.status(400).json({ message: req.t('auth.loginRequired') });
   }
 
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   const passwordOk = user && (await bcrypt.compare(password, user.password));
   if (!passwordOk) {
     // ไม่บอกว่าผิดที่ email หรือ password เพื่อความปลอดภัย
-    return res.status(401).json({ message: 'Email หรือรหัสผ่านไม่ถูกต้อง' });
+    return res.status(401).json({ message: req.t('auth.badCredentials') });
   }
 
   res.json({ token: signToken(user), user: publicUser(user) });
@@ -92,6 +92,6 @@ exports.login = async (req, res) => {
 // GET /api/auth/me
 exports.me = async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+  if (!user) return res.status(404).json({ message: req.t('auth.userNotFound') });
   res.json({ user: publicUser(user) });
 };
