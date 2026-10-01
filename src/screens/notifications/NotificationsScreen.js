@@ -21,6 +21,11 @@ const TYPE_ICON = {
   CLOSE_CANCELLED: 'refresh-circle',
   CLOSE_ACCEPTED: 'lock-closed',
   CLOSE_DECLINED: 'chatbubbles',
+  // ลูกความขอปิดเคส → ทนายตอบ
+  CLIENT_CLOSE_REQUESTED: 'hand-left',
+  CLIENT_CLOSE_CANCELLED: 'refresh-circle',
+  LAWYER_CLOSE_ACCEPTED: 'lock-closed',
+  LAWYER_CLOSE_DECLINED: 'chatbubbles',
 };
 
 // Figma "Notification": รายการแจ้งเตือน แตะแล้วพาไปที่เรื่องนั้น

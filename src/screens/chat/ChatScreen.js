@@ -176,7 +176,11 @@ export default function ChatScreen({ navigation }) {
           <View style={styles.chatMeta}>
             {item.lastMessage && <Text style={styles.chatTime}>{shortTime(item.lastMessage.createdAt)}</Text>}
             {item.status === 'CLOSED' && <Text style={styles.closedTag}>{t('chat.closedTag')}</Text>}
-            {item.status === 'APPROVED' && item.closeRequestedAt && <Text style={styles.closeAskTag}>{t('chat.closeAskTag')}</Text>}
+            {item.status === 'APPROVED' && item.closeRequestedAt && (
+              <Text style={styles.closeAskTag}>
+                {item.closeRequestedBy === 'CLIENT' ? t('chat.closeAskTagMine') : t('chat.closeAskTag')}
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
       )}

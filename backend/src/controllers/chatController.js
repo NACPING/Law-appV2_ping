@@ -98,6 +98,7 @@ exports.messages = async (req, res) => {
       status: chat.status,
       closedAt: chat.closedAt,
       closeRequestedAt: chat.closeRequestedAt,
+      closeRequestedBy: chat.closeRequestedAt ? chat.closeRequestedBy ?? 'LAWYER' : null,
       client: chat.client,
       lawyer: chat.lawyer,
     },

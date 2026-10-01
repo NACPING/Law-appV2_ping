@@ -92,8 +92,9 @@ model LawyerRequest {
   reviewedBy   User?     @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt   DateTime?
   closedAt     DateTime?
-  // ปิดเคสต้องยินยอมทั้งสองฝ่าย: ทนายขอปิด (ตั้งค่านี้) → ลูกความยินยอม = CLOSED / ไม่ยินยอม = ล้างค่า
+  // ปิดเคสต้องยินยอมทั้งสองฝ่าย: ฝ่ายหนึ่งขอปิด (ตั้งค่านี้) → อีกฝ่ายยินยอม = CLOSED / ไม่ยินยอม = ล้างค่า
   closeRequestedAt DateTime?
+  closeRequestedBy String? // ใครขอ: LAWYER | CLIENT (คำขอเก่าก่อนมีช่องนี้ = LAWYER)
   messages     Message[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

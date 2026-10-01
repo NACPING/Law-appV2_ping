@@ -26,7 +26,10 @@ export default function RequestCard({ request, onPress, showClient = false }) {
         {showClient && <Text style={styles.meta}>{t('consult.client', { name: displayName(request.client) })}</Text>}
         {request.lawyer && <Text style={styles.meta}>{t('consult.lawyer', { name: displayName(request.lawyer) })}</Text>}
         {request.status === 'APPROVED' && request.closeRequestedAt && (
-          <Text style={styles.closeAsk}>{t('consult.closeAsked')}</Text>
+          // บอกว่าใครขอปิดและรอใคร — ใช้ข้อความเดียวกับข้อความระบบในแชท
+          <Text style={styles.closeAsk}>
+            {request.closeRequestedBy === 'CLIENT' ? t('chat.system.CLIENT_CLOSE_REQUESTED') : t('chat.system.CLOSE_REQUESTED')}
+          </Text>
         )}
         <StatusChip status={request.status} />
       </View>

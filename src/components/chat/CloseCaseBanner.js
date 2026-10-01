@@ -4,24 +4,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemedStyles } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
-// แถบแจ้งคำขอปิดเคสเหนือช่องพิมพ์ — แสดงค้างไว้จนกว่าจะมีคนตอบ
-// ลูกความ: ปุ่มยินยอม / ไม่ยินยอม | ทนาย: รอการตอบ + ยกเลิกคำขอ
-export default function CloseCaseBanner({ isClient, busy, onAccept, onDecline, onCancel }) {
+// แถบแจ้งคำขอปิดเคสเหนือช่องพิมพ์ — แสดงค้างไว้จนกว่าจะมีคนตอบ (ใครขอก็ได้ ทนายหรือลูกความ)
+// mine = เราเป็นคนขอ → รอการตอบ + ยกเลิกคำขอ | ไม่ใช่ = อีกฝ่ายขอ → ปุ่มยินยอม / ไม่ยินยอม
+// requester = 'LAWYER' | 'CLIENT' ผู้ขอ (ใช้เลือกข้อความ)
+export default function CloseCaseBanner({ mine, requester, busy, onAccept, onDecline, onCancel }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const byLawyer = requester !== 'CLIENT';
+  // อีกฝ่ายที่ต้องยินยอม (ใช้ในข้อความของคนขอ)
+  const other = byLawyer ? t('chat.introOtherClient') : t('chat.introOtherLawyer');
+  const title = mine
+    ? byLawyer
+      ? t('chat.bannerLawyerTitle')
+      : t('chat.bannerWaitLawyerTitle')
+    : byLawyer
+      ? t('chat.bannerClientTitle')
+      : t('chat.bannerByClientTitle');
   return (
     <View style={styles.banner}>
       <View style={styles.header}>
         <Ionicons name="hand-left-outline" size={18} color={colors.warningIcon} />
-        <Text style={styles.title}>{isClient ? t('chat.bannerClientTitle') : t('chat.bannerLawyerTitle')}</Text>
+        <Text style={styles.title}>{title}</Text>
       </View>
-      <Text style={styles.body}>
-        {isClient ? t('chat.bannerClientBody') : t('chat.bannerLawyerBody')}
-      </Text>
+      <Text style={styles.body}>{mine ? t('chat.bannerLawyerBody', { other }) : t('chat.bannerClientBody')}</Text>
       {busy ? (
         <ActivityIndicator color={colors.accent} style={styles.busy} />
-      ) : isClient ? (
+      ) : !mine ? (
         <View style={styles.actions}>
           <TouchableOpacity style={[styles.btn, styles.decline]} onPress={onDecline} accessibilityRole="button">
             <Text style={styles.declineText}>{t('chat.decline')}</Text>

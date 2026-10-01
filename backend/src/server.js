@@ -16,6 +16,10 @@ const { languageMiddleware } = require('./i18n');
 
 const app = express();
 
+// npm run share: เพื่อนเข้าผ่าน Cloudflare Tunnel (https) ที่ต่อเข้ามาจากเครื่องนี้เอง
+// เชื่อ X-Forwarded-Proto/Host เฉพาะจาก localhost — ลิงก์รูป/PDF ที่สร้างให้จะเป็น https ของอุโมงค์ ไม่ใช่ http
+app.set('trust proxy', 'loopback');
+
 app.use(cors());
 app.use(express.json());
 app.use(languageMiddleware); // req.t() — ตอบข้อความตามภาษาที่แอปเลือก (header Accept-Language)

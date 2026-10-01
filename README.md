@@ -21,6 +21,24 @@ npx expo start              # สแกน QR ด้วย Expo Go
 มือถือกับคอมต้องอยู่ Wi-Fi เดียวกัน แอปจะหา IP ของ backend เองอัตโนมัติ
 ถ้าใช้ `--tunnel` หรือ backend อยู่เครื่องอื่น ให้ตั้ง `EXPO_PUBLIC_API_URL` ใน `.env` (ดู `.env.example`)
 
+## ให้เพื่อนลองจากที่อื่น (ไม่ต้อง Wi-Fi เดียวกัน)
+
+ติดตั้งครั้งเดียว: `winget install --id Cloudflare.cloudflared` (แล้วเปิด terminal ใหม่)
+
+```bash
+# terminal 1 — โฟลเดอร์ backend
+npm run dev
+
+# terminal 2 — โฟลเดอร์ Law-appAI_APP
+npm run share     # เปิดอุโมงค์ Cloudflare ให้ backend และตัวแอป แล้วแสดง QR (ไม่ใช้ ngrok — หลุดบ่อย)
+```
+
+ส่ง QR หรือลิงก์ `exp://...` ให้เพื่อนสแกนด้วย Expo Go · กด Ctrl+C เพื่อปิด
+- **Android:** สแกนด้วยแอป Expo Go ได้เลย
+- **iPhone:** Expo Go บน iPhone บังคับให้คอมกับมือถือล็อกอินบัญชี Expo **เดียวกัน** — คอมนี้ล็อกอินบัญชีเดโม `lawapp-demo` ไว้แล้ว (`npx expo login`) เพื่อน iPhone ต้องล็อกอิน Expo Go ด้วยบัญชีนี้ แล้วสแกนด้วยกล้อง iPhone
+- คอมต้องเปิดค้างไว้ตลอดเวลาที่เพื่อนใช้ · ลิงก์เปลี่ยนทุกครั้งที่รันใหม่
+- ใครได้ลิงก์ก็เข้า backend ได้ — บัญชีจาก seed ใช้รหัส `password123` ทั้งหมด ควรเปลี่ยนรหัส admin ก่อนแชร์
+
 ## API
 
 | Method | Path | หมายเหตุ |
@@ -50,9 +68,9 @@ npx expo start              # สแกน QR ด้วย Expo Go
 | PATCH | `/api/lawyer-requests/:id/approve` | **ADMIN** · `{ lawyerId }` |
 | PATCH | `/api/lawyer-requests/:id/reject` | **ADMIN** · `{ reason }` (ลูกความเห็นเหตุผล) |
 
-| PATCH | `/api/lawyer-requests/:id/close` | **ทนายที่ดูแลเคส** · ส่งคำขอปิดเคส (ยังไม่ปิดจนกว่าลูกความยินยอม) |
-| PATCH | `/api/lawyer-requests/:id/close/cancel` | **ทนายที่ดูแลเคส** · ยกเลิกคำขอปิดเคส |
-| PATCH | `/api/lawyer-requests/:id/close/respond` | **ลูกความของเคส** · `{ accept }` ยินยอม = ปิดเคส (แชทอ่านอย่างเดียว) / ไม่ยินยอม = ดำเนินต่อ |
+| PATCH | `/api/lawyer-requests/:id/close` | **ทนายหรือลูกความของเคส** · ส่งคำขอปิดเคส (ยังไม่ปิดจนกว่าอีกฝ่ายยินยอม) · `closeRequestedBy` บอกว่าใครขอ |
+| PATCH | `/api/lawyer-requests/:id/close/cancel` | **คนที่ขอ** · ยกเลิกคำขอปิดเคสของตัวเอง |
+| PATCH | `/api/lawyer-requests/:id/close/respond` | **อีกฝ่าย (ไม่ใช่คนขอ)** · `{ accept }` ยินยอม = ปิดเคส (แชทอ่านอย่างเดียว) / ไม่ยินยอม = ดำเนินต่อ |
 | GET | `/api/chats/:requestId/messages?before=` | ข้อความทีละ 40 (ใหม่ → เก่า) — เฉพาะลูกความและทนายของเคส |
 | POST | `/api/chats/:requestId/messages` | multipart: `text?`, `file?` (รูปภาพ หรือ PDF ≤ 10 MB) |
 | GET | `/api/chats/files/:messageId?token=` | เปิดไฟล์แนบ (ลิงก์มีอายุ 6 ชม. ได้จากรายการข้อความ) |

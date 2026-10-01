@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemedStyles } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
-// หน้าต่างเด้งให้ลูกความตอบคำขอปิดเคสของทนาย
-export default function CloseCaseDialog({ visible, lawyerName, onAccept, onDecline, onLater }) {
+// หน้าต่างเด้งให้ฝ่ายที่ถูกขอ ตอบคำขอปิดเคส (requester = 'LAWYER' | 'CLIENT' ผู้ขอ, lawyerName = ชื่อผู้ขอ)
+export default function CloseCaseDialog({ visible, lawyerName, requester = 'LAWYER', onAccept, onDecline, onLater }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -14,7 +14,7 @@ export default function CloseCaseDialog({ visible, lawyerName, onAccept, onDecli
       <View style={styles.backdrop}>
         <View style={styles.card} accessibilityViewIsModal>
           <Ionicons name="hand-left-outline" size={40} color={colors.warningIcon} style={styles.icon} />
-          <Text style={styles.title}>{t('chat.dialogTitle')}</Text>
+          <Text style={styles.title}>{requester === 'CLIENT' ? t('chat.dialogTitleClient') : t('chat.dialogTitle')}</Text>
           <Text style={styles.body}>{t('chat.dialogBody', { name: lawyerName })}</Text>
           <View style={styles.actions}>
             <TouchableOpacity style={[styles.btn, styles.decline]} onPress={onDecline} accessibilityRole="button">

@@ -30,6 +30,7 @@ const toDto = (r) => ({
   lastMessage: lastMessagePreview(r.messages?.[0]) ?? null,
   closedAt: r.closedAt,
   closeRequestedAt: r.closeRequestedAt,
+  closeRequestedBy: r.closeRequestedAt ? r.closeRequestedBy ?? 'LAWYER' : null,
   ref: refOf(r.id),
   subject: r.subject,
   events: r.events,
@@ -197,8 +198,17 @@ exports.approve = async (req, res) => {
 };
 
 // ---- ปิดเคส: ต้องยินยอมทั้งสองฝ่าย ----
-// ทนายขอปิด → closeRequestedAt ถูกตั้งค่า (แชทยังคุยต่อได้) → ลูกความยินยอม = CLOSED / ไม่ยินยอม = ล้างค่า
+// ฝ่ายใดฝ่ายหนึ่ง (ทนายหรือลูกความ) ขอปิด → closeRequestedAt/By ถูกตั้งค่า (แชทยังคุยต่อได้)
+// → อีกฝ่ายยินยอม = CLOSED / ไม่ยินยอม = ล้างค่า · คนขอยกเลิกคำขอของตัวเองได้ · มีคำขอค้างได้ทีละ 1 อัน
 // ทุกขั้นตอนบันทึกเป็นข้อความระบบในแชท และแจ้งทั้งสองฝ่ายแบบ real-time ด้วย event "chat:status"
+
+// เงื่อนไข "เป็นคู่กรณีของเคสนี้" ตามบทบาท และข้อมูลของอีกฝ่าย
+const asParty = (req) => (req.user.role === 'LAWYER' ? { lawyerId: req.user.userId } : { clientId: req.user.userId });
+const otherRole = (role) => (role === 'LAWYER' ? 'CLIENT' : 'LAWYER');
+const otherUserId = (r, role) => (role === 'LAWYER' ? r.clientId : r.lawyerId);
+const personOf = (r, role) => (role === 'LAWYER' ? r.lawyer : r.client);
+// รหัสข้อความระบบ/แจ้งเตือน: ชุดเดิม (ไม่มี prefix) = ทนายขอ ลูกความตอบ · ชุดใหม่ = ลูกความขอ ทนายตอบ
+const REQUEST_CODES = ['CLOSE_REQUESTED', 'CLIENT_CLOSE_REQUESTED'];
 
 // เปลี่ยนสถานะแบบมีเงื่อนไข (กันกดซ้ำ/สองฝ่ายกดพร้อมกัน) แล้วแจ้งทุกคนในห้อง
 // notification(updated) = การแจ้งเตือนถึงอีกฝ่าย, staleFor(updated) = ผู้ใช้ที่แจ้งเตือน "ขอปิดเคส" เดิมหมดความหมายแล้ว
@@ -217,11 +227,12 @@ async function transitionCase(req, res, { where, data, conflict, systemCode, not
     requestId: updated.id,
     status: updated.status,
     closeRequestedAt: updated.closeRequestedAt,
+    closeRequestedBy: updated.closeRequestedBy,
     closedAt: updated.closedAt,
   });
   res.json({ request: toDto(updated) });
 
-  if (staleFor) await markRead(staleFor(updated), { type: 'CLOSE_REQUESTED', targetId: updated.id });
+  if (staleFor) await markRead(staleFor(updated), { type: { in: REQUEST_CODES }, targetId: updated.id });
   await notify({
     actorId: req.user.userId,
     targetType: 'chat',
@@ -230,48 +241,58 @@ async function transitionCase(req, res, { where, data, conflict, systemCode, not
   });
 }
 
-// PATCH /api/lawyer-requests/:id/close — ทนายส่งคำขอปิดเคสให้ลูกความยินยอม
-exports.requestClose = (req, res) =>
-  transitionCase(req, res, {
-    where: { lawyerId: req.user.userId, status: 'APPROVED', closeRequestedAt: null },
-    data: { closeRequestedAt: new Date() },
+// PATCH /api/lawyer-requests/:id/close — ทนายหรือลูกความของเคส ส่งคำขอปิดเคสให้อีกฝ่ายยินยอม
+exports.requestClose = (req, res) => {
+  const role = req.user.role;
+  const code = role === 'CLIENT' ? 'CLIENT_CLOSE_REQUESTED' : 'CLOSE_REQUESTED';
+  return transitionCase(req, res, {
+    where: { ...asParty(req), status: 'APPROVED', closeRequestedAt: null },
+    data: { closeRequestedAt: new Date(), closeRequestedBy: role },
     conflict: 'request.closeAlready',
-    systemCode: 'CLOSE_REQUESTED',
+    systemCode: code,
     notification: (r) => ({
-      userId: r.clientId,
-      type: 'CLOSE_REQUESTED',
-      params: { name: nameOf(r.lawyer), subject: preview(r.subject, 40) },
+      userId: otherUserId(r, role),
+      type: code,
+      params: { name: nameOf(personOf(r, role)), subject: preview(r.subject, 40) },
     }),
   });
+};
 
-// PATCH /api/lawyer-requests/:id/close/cancel — ทนายยกเลิกคำขอปิดเคส
-exports.cancelClose = (req, res) =>
-  transitionCase(req, res, {
-    where: { lawyerId: req.user.userId, status: 'APPROVED', closeRequestedAt: { not: null } },
-    data: { closeRequestedAt: null },
+// PATCH /api/lawyer-requests/:id/close/cancel — คนที่ขอ ยกเลิกคำขอของตัวเอง
+exports.cancelClose = (req, res) => {
+  const role = req.user.role;
+  const code = role === 'CLIENT' ? 'CLIENT_CLOSE_CANCELLED' : 'CLOSE_CANCELLED';
+  return transitionCase(req, res, {
+    where: { ...asParty(req), status: 'APPROVED', closeRequestedAt: { not: null }, closeRequestedBy: role },
+    data: { closeRequestedAt: null, closeRequestedBy: null },
     conflict: 'request.closeNoPending',
-    systemCode: 'CLOSE_CANCELLED',
-    staleFor: (r) => r.clientId,
+    systemCode: code,
+    staleFor: (r) => otherUserId(r, role),
     notification: (r) => ({
-      userId: r.clientId,
-      type: 'CLOSE_CANCELLED',
+      userId: otherUserId(r, role),
+      type: code,
       params: { subject: preview(r.subject, 40) },
     }),
   });
+};
 
-// PATCH /api/lawyer-requests/:id/close/respond { accept } — ลูกความยินยอม/ไม่ยินยอมให้ปิดเคส
+// PATCH /api/lawyer-requests/:id/close/respond { accept } — อีกฝ่าย (ไม่ใช่คนขอ) ยินยอม/ไม่ยินยอมให้ปิดเคส
 exports.respondClose = (req, res) => {
+  const role = req.user.role;
   const accept = req.body?.accept === true;
+  // ลูกความตอบ = รหัสชุดเดิม · ทนายตอบ (คำขอของลูกความ) = LAWYER_*
+  const code = `${role === 'LAWYER' ? 'LAWYER_' : ''}${accept ? 'CLOSE_ACCEPTED' : 'CLOSE_DECLINED'}`;
+  const cleared = { closeRequestedAt: null, closeRequestedBy: null };
   return transitionCase(req, res, {
-    where: { clientId: req.user.userId, status: 'APPROVED', closeRequestedAt: { not: null } },
-    data: accept ? { status: 'CLOSED', closedAt: new Date(), closeRequestedAt: null } : { closeRequestedAt: null },
+    where: { ...asParty(req), status: 'APPROVED', closeRequestedAt: { not: null }, closeRequestedBy: otherRole(role) },
+    data: accept ? { status: 'CLOSED', closedAt: new Date(), ...cleared } : cleared,
     conflict: 'request.closeNoPendingMaybe',
-    systemCode: accept ? 'CLOSE_ACCEPTED' : 'CLOSE_DECLINED',
-    staleFor: (r) => r.clientId,
+    systemCode: code,
+    staleFor: () => req.user.userId, // ตอบแล้ว = แจ้งเตือน "ขอปิดเคส" ของเราหมดความหมาย
     notification: (r) => ({
-      userId: r.lawyerId,
-      type: accept ? 'CLOSE_ACCEPTED' : 'CLOSE_DECLINED',
-      params: { name: nameOf(r.client), subject: preview(r.subject, 40) },
+      userId: otherUserId(r, role),
+      type: code,
+      params: { name: nameOf(personOf(r, role)), subject: preview(r.subject, 40) },
     }),
   });
 };

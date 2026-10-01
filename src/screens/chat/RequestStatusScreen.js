@@ -99,7 +99,14 @@ export default function RequestStatusScreen({ route, navigation }) {
             </TouchableOpacity>
             {request.closeRequestedAt && (
               <Text style={styles.closeAsk}>
-                {isClient ? t('consult.closeAskedClient') : t('consult.closeAsked')}
+                {/* เราเป็นคนขอ = รออีกฝ่าย · อีกฝ่ายขอ = ให้เข้าห้องแชทไปตอบ */}
+                {request.closeRequestedBy === user?.role
+                  ? isClient
+                    ? t('consult.closeAskedWaitLawyer')
+                    : t('consult.closeAsked')
+                  : isClient
+                    ? t('consult.closeAskedClient')
+                    : t('consult.closeAskedByClient')}
               </Text>
             )}
           </>

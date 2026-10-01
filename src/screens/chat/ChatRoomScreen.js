@@ -63,20 +63,25 @@ export default function ChatRoomScreen({ route, navigation }) {
 
   const [caseBusy, setCaseBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const dismissedCloseRequestRef = useRef(null); // คำขอปิดเคสที่ลูกความกด "ไว้ทีหลัง" แล้ว (ไม่เด้งซ้ำ)
+  const dismissedCloseRequestRef = useRef(null); // คำขอปิดเคสที่เรากด "ไว้ทีหลัง" แล้ว (ไม่เด้งซ้ำ)
 
   const isLawyer = user?.role === 'LAWYER';
   const isClient = user?.role === 'CLIENT';
   const closed = chat?.status === 'CLOSED';
   const closePending = chat?.status === 'APPROVED' && !!chat?.closeRequestedAt;
+  // ใครขอปิด (ทนายหรือลูกความ) — เราเป็นคนขอ = รอ + ยกเลิกได้ · อีกฝ่ายขอ = เราเป็นคนตอบ
+  const closeRequestedBy = chat?.closeRequestedBy ?? 'LAWYER';
+  const isParty = isLawyer || isClient;
+  const iRequestedClose = closePending && closeRequestedBy === user?.role;
+  const iRespondClose = closePending && isParty && !iRequestedClose;
 
-  // ลูกความ: เมื่อมีคำขอปิดเคสใหม่ (ตอนเปิดห้อง หรือทนายเพิ่งกดขณะเปิดห้องอยู่) ให้หน้าต่างเด้งขึ้น
+  // ฝ่ายที่ถูกขอ: เมื่อมีคำขอปิดเคสใหม่ (ตอนเปิดห้อง หรืออีกฝ่ายเพิ่งกดขณะเปิดห้องอยู่) ให้หน้าต่างเด้งขึ้น
   useEffect(() => {
-    if (isClient && closePending && dismissedCloseRequestRef.current !== chat.closeRequestedAt) {
+    if (iRespondClose && dismissedCloseRequestRef.current !== chat.closeRequestedAt) {
       setDialogOpen(true);
     }
-    if (!closePending) setDialogOpen(false);
-  }, [isClient, closePending, chat?.closeRequestedAt]);
+    if (!iRespondClose) setDialogOpen(false);
+  }, [iRespondClose, chat?.closeRequestedAt]);
 
   const loadLatest = useCallback(async () => {
     try {
@@ -97,10 +102,19 @@ export default function ChatRoomScreen({ route, navigation }) {
     // เข้าห้องเสร็จแล้วโหลดสถานะล่าสุดอีกครั้ง — กันพลาดเหตุการณ์ที่เกิดระหว่างโหลดหน้ากับตอนเข้าห้อง
     const join = () => socket.emit('chat:join', { requestId }, () => active && loadLatest());
     const onMessage = (m) => m.requestId === requestId && setMessages((prev) => mergeMessages(prev, [m]));
-    // สถานะเคสเปลี่ยน (ทนายขอปิด/ยกเลิก, ลูกความยินยอม/ไม่ยินยอม)
+    // สถานะเคสเปลี่ยน (อีกฝ่ายขอปิด/ยกเลิก/ยินยอม/ไม่ยินยอม)
     const onStatus = (e) =>
       e.requestId === requestId &&
-      setChat((c) => c && { ...c, status: e.status, closeRequestedAt: e.closeRequestedAt, closedAt: e.closedAt });
+      setChat(
+        (c) =>
+          c && {
+            ...c,
+            status: e.status,
+            closeRequestedAt: e.closeRequestedAt,
+            closeRequestedBy: e.closeRequestedBy,
+            closedAt: e.closedAt,
+          }
+      );
     const onReconnect = () => join();
 
     loadLatest();
@@ -130,7 +144,13 @@ export default function ChatRoomScreen({ route, navigation }) {
       setError('');
       try {
         const { request } = await action();
-        setChat((c) => ({ ...c, status: request.status, closeRequestedAt: request.closeRequestedAt, closedAt: request.closedAt }));
+        setChat((c) => ({
+          ...c,
+          status: request.status,
+          closeRequestedAt: request.closeRequestedAt,
+          closeRequestedBy: request.closeRequestedBy,
+          closedAt: request.closedAt,
+        }));
       } catch (e) {
         setError(e.message);
         loadLatest(); // สถานะอาจเปลี่ยนไปแล้ว (เช่น ทนายยกเลิกคำขอก่อน)
@@ -141,19 +161,20 @@ export default function ChatRoomScreen({ route, navigation }) {
     [loadLatest]
   );
 
-  // ทนาย: ส่งคำขอปิดเคส (ยังไม่ปิดจนกว่าลูกความยินยอม)
+  // ทนายหรือลูกความ: ส่งคำขอปิดเคส (ยังไม่ปิดจนกว่าอีกฝ่ายยินยอม)
   const handleRequestClose = useCallback(async () => {
+    const other = isLawyer ? t('chat.introOtherClient') : t('chat.introOtherLawyer');
     const ok = await confirmAction(
       t('chat.requestCloseTitle'),
-      t('chat.requestCloseBody'),
+      t('chat.requestCloseBody', { other }),
       t('chat.sendRequest')
     );
     if (ok) runCaseAction(() => requestService.requestCloseCase(requestId));
-  }, [requestId, runCaseAction, t]);
+  }, [requestId, runCaseAction, t, isLawyer]);
 
   const handleCancelClose = () => runCaseAction(() => requestService.cancelCloseCase(requestId));
 
-  // ลูกความ: ตอบคำขอปิดเคส
+  // ฝ่ายที่ถูกขอ: ตอบคำขอปิดเคส
   const respondClose = (accept) => {
     setDialogOpen(false);
     runCaseAction(() => requestService.respondCloseCase(requestId, accept));
@@ -168,7 +189,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     navigation.setOptions({
       title: other ? displayName(other) : route.params.name ?? t('nav.chat'),
       headerRight:
-        isLawyer && chat?.status === 'APPROVED' && !chat?.closeRequestedAt
+        isParty && chat?.status === 'APPROVED' && !chat?.closeRequestedAt
           ? () => (
               <TouchableOpacity onPress={handleRequestClose} hitSlop={8} accessibilityLabel={t('chat.closeCase')}>
                 <Text style={styles.closeCase}>{t('chat.closeCase')}</Text>
@@ -176,7 +197,7 @@ export default function ChatRoomScreen({ route, navigation }) {
             )
           : undefined,
     });
-  }, [navigation, chat, isLawyer, handleRequestClose, route.params.name, styles, t]);
+  }, [navigation, chat, isLawyer, isParty, handleRequestClose, route.params.name, styles, t]);
 
   const loadOlder = async () => {
     if (!hasMore || loadingOlderRef.current || messages.length === 0) return;
@@ -322,9 +343,10 @@ export default function ChatRoomScreen({ route, navigation }) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {closePending && (isClient || isLawyer) && (
+      {closePending && isParty && (
         <CloseCaseBanner
-          isClient={isClient}
+          mine={iRequestedClose}
+          requester={closeRequestedBy}
           busy={caseBusy}
           onAccept={handleAcceptFromBanner}
           onDecline={() => respondClose(false)}
@@ -423,7 +445,8 @@ export default function ChatRoomScreen({ route, navigation }) {
 
       <CloseCaseDialog
         visible={dialogOpen}
-        lawyerName={displayName(chat.lawyer)}
+        lawyerName={displayName(closeRequestedBy === 'CLIENT' ? chat.client : chat.lawyer)}
+        requester={closeRequestedBy}
         onAccept={() => respondClose(true)}
         onDecline={() => respondClose(false)}
         onLater={() => {

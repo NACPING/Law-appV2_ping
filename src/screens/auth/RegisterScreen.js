@@ -12,6 +12,7 @@ import KeyboardAware from '../../components/KeyboardAware';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthHeader from '../../components/AuthHeader';
 import AuthInput from '../../components/AuthInput';
+import DatePickerField from '../../components/DatePickerField';
 import SocialLogin from '../../components/SocialLogin';
 import * as authService from '../../services/authService';
 import { useThemedStyles } from '../../context/ThemeContext';
@@ -34,10 +35,10 @@ const FIELDS = [
   { key: 'password', icon: 'lock', placeholder: 'auth.password', secureTextEntry: true },
   { key: 'confirmPassword', icon: 'lock', placeholder: 'auth.confirmPassword', secureTextEntry: true },
   { key: 'phone', icon: 'phone', placeholder: 'auth.phone', keyboardType: 'phone-pad' },
-  { key: 'dob', icon: 'calendar', placeholder: 'auth.dob' },
 ];
 
-const INITIAL_FORM = FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: '' }), { role: 'client' });
+// วันเกิดไม่ใช่ช่องพิมพ์ (เลือกจาก DatePickerField) จึงไม่อยู่ใน FIELDS — เก็บเป็น 'YYYY-MM-DD'
+const INITIAL_FORM = FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: '' }), { role: 'client', dob: '' });
 
 // คืน key ของข้อความผิดพลาดใน i18n ('' = ผ่าน)
 function validate(form) {
@@ -115,6 +116,7 @@ export default function RegisterScreen({ navigation }) {
               onChangeText={(text) => handleChange(key, text)}
             />
           ))}
+          <DatePickerField value={form.dob} onChange={(dob) => handleChange('dob', dob)} placeholder={t('auth.dob')} />
 
           {errorMessage ? (
             <Text style={styles.error} accessibilityRole="alert">
