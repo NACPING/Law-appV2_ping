@@ -25,6 +25,13 @@ model User {
   about       String?
   // ทนายเลือกได้ว่าจะให้ผู้อื่นเห็นเบอร์โทร/อีเมลในโปรไฟล์ไหม (ลูกความ = ซ่อนเสมอ)
   showContact Boolean   @default(false)
+  // Settings > Notifications: ปิดแล้ว backend ไม่สร้างการแจ้งเตือนประเภทนั้น
+  notifyPosts Boolean   @default(true) // คอมเมนต์/ตอบกลับในโพสต์
+  notifyChat  Boolean   @default(true) // ข้อความแชท
+  notifyCases Boolean   @default(true) // ความคืบหน้าคำขอ/เคส (อนุมัติ, ปฏิเสธ, มอบหมาย, ปิดเคส, คำขอใหม่ของ admin)
+  // Settings > Posting: เปิดหน้าสร้างโพสต์มาแล้วเลือก "ไม่ระบุตัวตน" ไว้ให้ (เฉพาะ CLIENT)
+  postAnonymously Boolean @default(false)
+  notifyFollows Boolean   @default(true) // มีคนติดตามคุณ / คนที่คุณติดตามโพสต์ใหม่
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   posts       Post[]
@@ -37,6 +44,8 @@ model User {
   messages         Message[]
   notifications    Notification[] @relation("NotificationRecipient")
   actedNotifications Notification[] @relation("NotificationActor")
+  following          Follow[]       @relation("Follower") // คนที่ผู้ใช้นี้ติดตาม
+  followers          Follow[]       @relation("Following") // คนที่ติดตามผู้ใช้นี้
 }
 
 // การแจ้งเตือนในแอป (กระดิ่ง) — เรื่องเดียวกันที่ยังไม่อ่านจะรวมเป็นรายการเดียว (count) เช่น "ได้รับข้อความใหม่ (3)"
@@ -113,6 +122,18 @@ model Message {
   createdAt DateTime      @default(now())
 
   @@index([requestId, createdAt])
+}
+
+// ระบบผู้ติดตาม — ติดตามแบบทางเดียว (ไม่ต้องรอตอบรับ) · ลูกความ/ทนายติดตามกันได้ทุกคน, admin ไม่เกี่ยวข้อง
+model Follow {
+  followerId  String
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
 }
 
 // Use Case: Posting (extend: create post)

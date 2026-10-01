@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import PostDetailScreen from '../screens/community/PostDetailScreen';
+import FollowListScreen from '../screens/profile/FollowListScreen';
 import MenuButton from '../components/MenuButton';
 import { useStackScreenOptions } from './stackOptions';
 import { useLanguage } from '../context/LanguageContext';
@@ -22,6 +23,7 @@ export default function ProfileNavigator() {
       />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: t('nav.profile') }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: '' }} />
+      <Stack.Screen name="FollowList" component={FollowListScreen} options={{ title: '' }} />
     </Stack.Navigator>
   );
 }

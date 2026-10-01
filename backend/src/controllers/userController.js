@@ -3,6 +3,7 @@ const prisma = require('../config/db');
 const { removeUploadedFiles } = require('../middlewares/upload');
 const { publicUser } = require('./authController');
 const { authorSelect, toPostDto } = require('./postController');
+const { FOLLOWABLE_ROLES } = require('./followController');
 
 const MAX_NAME = 50;
 const MAX_BIO = 150;
@@ -22,7 +23,7 @@ exports.profile = async (req, res) => {
   const showContact = isSelf || (isLawyer && user.showContact);
   const postWhere = { authorId: user.id, ...(isSelf ? {} : { isAnonymous: false }) };
 
-  const [postCount, posts, commentCount, caseCount, comments] = await Promise.all([
+  const [postCount, posts, commentCount, caseCount, comments, followerCount, followingCount, follow] = await Promise.all([
     prisma.post.count({ where: postWhere }),
     prisma.post.findMany({
       where: postWhere,
@@ -41,6 +42,11 @@ exports.profile = async (req, res) => {
           select: { id: true, content: true, createdAt: true, post: { select: { id: true, title: true } } },
         })
       : [],
+    prisma.follow.count({ where: { followingId: user.id } }),
+    prisma.follow.count({ where: { followerId: user.id } }),
+    isSelf
+      ? null
+      : prisma.follow.findUnique({ where: { followerId_followingId: { followerId: req.user.userId, followingId: user.id } } }),
   ]);
 
   res.json({
@@ -56,9 +62,12 @@ exports.profile = async (req, res) => {
       email: showContact ? user.email : null,
       showContact: isSelf ? user.showContact : undefined,
       isSelf,
+      isFollowing: Boolean(follow),
+      // ปุ่มติดตาม: ลูกความ/ทนายเท่านั้น ทั้งคนกดและคนถูกติดตาม (admin ไม่เกี่ยวข้อง)
+      canFollow: !isSelf && FOLLOWABLE_ROLES.includes(user.role) && FOLLOWABLE_ROLES.includes(req.user.role),
       createdAt: user.createdAt,
     },
-    stats: { postCount, commentCount, caseCount },
+    stats: { postCount, commentCount, caseCount, followerCount, followingCount },
     posts: posts.map((p) => toPostDto(req, p)),
     comments,
   });
@@ -82,6 +91,11 @@ exports.updateMe = async (req, res) => {
     if (body.about !== undefined) data.about = text(body.about) || null;
     if (body.showContact !== undefined) data.showContact = body.showContact === true;
   }
+  // Settings > Notifications (ทุกบทบาท) และ Settings > Posting (เฉพาะลูกความ — ทนาย/admin โพสต์ไม่ได้)
+  for (const key of ['notifyPosts', 'notifyChat', 'notifyCases', 'notifyFollows']) {
+    if (body[key] !== undefined) data[key] = body[key] === true;
+  }
+  if (me.role === 'CLIENT' && body.postAnonymously !== undefined) data.postAnonymously = body.postAnonymously === true;
 
   if (data.firstName === '' || data.lastName === '') {
     return res.status(400).json({ message: req.t('user.nameRequired') });

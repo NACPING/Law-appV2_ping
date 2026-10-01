@@ -98,6 +98,8 @@ export default function NotificationsScreen({ navigation }) {
     else if (n.targetType === 'request') {
       go('Chat', user?.role === 'ADMIN' ? 'AdminReview' : 'RequestStatus', { requestId: n.targetId });
     }
+    // มีผู้ติดตามใหม่ → รายชื่อผู้ติดตามของเราเอง (targetId = id ของเรา)
+    else if (n.targetType === 'followers') go('Profile', 'FollowList', { userId: n.targetId, type: 'followers' });
   };
 
   if (items === null) {

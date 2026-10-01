@@ -13,6 +13,8 @@ import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 import LanguageScreen from '../screens/profile/LanguageScreen';
+import ReadingSettingsScreen from '../screens/profile/ReadingSettingsScreen';
+import { NotificationSettingsScreen, PostingSettingsScreen } from '../screens/profile/AccountSwitchesScreen';
 import { useTheme } from '../context/ThemeContext';
 import { useStackScreenOptions } from './stackOptions';
 import { useLanguage } from '../context/LanguageContext';
@@ -73,6 +75,9 @@ export default function AppNavigator() {
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: t('nav.privacy') }} />
       <Stack.Screen name="Help" component={HelpScreen} options={{ title: t('nav.help') }} />
       <Stack.Screen name="Language" component={LanguageScreen} options={{ title: t('nav.language') }} />
+      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: t('nav.notificationSettings') }} />
+      <Stack.Screen name="PostingSettings" component={PostingSettingsScreen} options={{ title: t('nav.postingSettings') }} />
+      <Stack.Screen name="ReadingSettings" component={ReadingSettingsScreen} options={{ title: t('nav.readingSettings') }} />
     </Stack.Navigator>
   );
 }

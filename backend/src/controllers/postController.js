@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const { removeUploadedFiles } = require('../middlewares/upload');
 const { notify, markRead, removeForTarget, preview, nameOf } = require('../services/notify');
+const { notifyFollowersOfPost } = require('./followController');
 
 const MAX_TITLE = 150;
 const MAX_CONTENT = 5000;
@@ -42,9 +43,17 @@ exports.toPostDto = toPostDto;
 
 const canModify = (req, ownerId) => ownerId === req.user.userId || req.user.role === 'ADMIN';
 
-// GET /api/posts — หน้า Communication
+// GET /api/posts — หน้า Communication · ?feed=following = แท็บ "ติดตาม"
+// แท็บติดตาม: โพสต์ของคนที่เราติดตาม (ไม่รวมโพสต์ไม่ระบุตัวตน) + โพสต์ที่คนที่เราติดตามไปคอมเมนต์
 exports.list = async (req, res) => {
+  let where = {};
+  if (req.query.feed === 'following') {
+    const rows = await prisma.follow.findMany({ where: { followerId: req.user.userId }, select: { followingId: true } });
+    const ids = rows.map((r) => r.followingId);
+    where = { OR: [{ authorId: { in: ids }, isAnonymous: false }, { comments: { some: { authorId: { in: ids } } } }] };
+  }
   const posts = await prisma.post.findMany({
+    where,
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: {
@@ -95,8 +104,9 @@ exports.create = async (req, res) => {
     return res.status(400).json({ message: error });
   }
 
+  let post;
   try {
-    const post = await prisma.post.create({
+    post = await prisma.post.create({
       data: {
         title,
         content,
@@ -106,11 +116,13 @@ exports.create = async (req, res) => {
       },
       include: { author: authorSelect, images: { orderBy: { order: 'asc' } }, _count: { select: { comments: true } } },
     });
-    res.status(201).json({ post: toPostDto(req, post) });
   } catch (err) {
     removeUploadedFiles(imageUrls);
     throw err;
   }
+  res.status(201).json({ post: toPostDto(req, post) });
+  // แจ้งผู้ติดตามหลังตอบกลับแล้ว — ถ้าแจ้งไม่สำเร็จโพสต์ก็ยังอยู่ครบ
+  await notifyFollowersOfPost(post, post.author).catch((e) => console.error('notify followers failed:', e));
 };
 
 // DELETE /api/posts/:id — ลบได้เฉพาะเจ้าของโพสต์หรือ ADMIN (ลบไฟล์รูปด้วย)

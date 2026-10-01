@@ -19,6 +19,11 @@ const publicUser = (user) => ({
   bio: user.bio,
   about: user.about,
   showContact: user.showContact,
+  notifyPosts: user.notifyPosts,
+  notifyChat: user.notifyChat,
+  notifyCases: user.notifyCases,
+  notifyFollows: user.notifyFollows,
+  postAnonymously: user.postAnonymously,
 });
 exports.publicUser = publicUser;
 

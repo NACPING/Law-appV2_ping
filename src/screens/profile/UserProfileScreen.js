@@ -3,12 +3,13 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, Touchabl
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/community/Avatar';
+import FollowButton from '../../components/FollowButton';
 import PostCard from '../../components/community/PostCard';
 import BellButton from '../../components/BellButton';
 import { useAuth } from '../../context/AuthContext';
 import * as userService from '../../services/userService';
 import { useTheme, useThemedStyles } from '../../context/ThemeContext';
-import { timeAgo } from '../../utils/format';
+import { displayName, timeAgo } from '../../utils/format';
 import { useLanguage } from '../../context/LanguageContext';
 
 // สีแถบด้านบนตาม Figma: Profile-client = น้ำเงิน, Profile-lawyer = เหลือง
@@ -79,6 +80,10 @@ export default function UserProfileScreen({ route, navigation }) {
           stats={stats}
           canEdit={isHome}
           onEdit={() => navigation.navigate('EditProfile')}
+          onOpenList={(type) => navigation.push('FollowList', { userId: user.id, type })}
+          onFollowChange={(isFollowing, followerCount) =>
+            setData((d) => ({ ...d, user: { ...d.user, isFollowing }, stats: { ...d.stats, followerCount } }))
+          }
         />
       }
       ListEmptyComponent={
@@ -101,7 +106,7 @@ export default function UserProfileScreen({ route, navigation }) {
   );
 }
 
-function ProfileHeader({ user, stats, canEdit, onEdit }) {
+function ProfileHeader({ user, stats, canEdit, onEdit, onOpenList, onFollowChange }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -149,6 +154,28 @@ function ProfileHeader({ user, stats, canEdit, onEdit }) {
             <Text style={styles.stats}>{statsText}</Text>
           </View>
         </View>
+
+        {/* ผู้ติดตาม/กำลังติดตาม (แตะเพื่อดูรายชื่อ) + ปุ่มติดตาม — admin ไม่อยู่ในระบบนี้ */}
+        {user.role !== 'ADMIN' && (
+          <View style={styles.followRow}>
+            <TouchableOpacity onPress={() => onOpenList('followers')} hitSlop={6}>
+              <Text style={styles.followStat}>{t('follow.followers', { n: stats.followerCount })}</Text>
+            </TouchableOpacity>
+            <Text style={styles.followDot}>·</Text>
+            <TouchableOpacity onPress={() => onOpenList('following')} hitSlop={6}>
+              <Text style={styles.followStat}>{t('follow.followingCount', { n: stats.followingCount })}</Text>
+            </TouchableOpacity>
+            <View style={styles.flex} />
+            {user.canFollow && (
+              <FollowButton
+                userId={user.id}
+                name={displayName(user)}
+                isFollowing={user.isFollowing}
+                onChange={onFollowChange}
+              />
+            )}
+          </View>
+        )}
 
         {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
 
@@ -203,6 +230,10 @@ function CommentRow({ comment, onPress }) {
 
 const makeStyles = (c) =>
   StyleSheet.create({
+    flex: { flex: 1 },
+    followRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, minHeight: 36 },
+    followStat: { fontSize: 13, fontWeight: '600', color: c.text },
+    followDot: { marginHorizontal: 8, color: c.textMuted },
     container: { flex: 1, backgroundColor: c.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: c.background },
     error: { color: c.error, textAlign: 'center' },

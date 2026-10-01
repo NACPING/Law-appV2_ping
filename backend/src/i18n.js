@@ -42,6 +42,10 @@ const messages = {
       lawyerCannotPost: 'ทนายความไม่สามารถสร้างโพสต์ได้ แต่แสดงความคิดเห็นได้',
     },
     ebook: { notFound: 'ไม่พบหนังสือ' },
+    follow: {
+      self: 'ติดตามตัวเองไม่ได้',
+      notAllowed: 'ติดตามได้เฉพาะระหว่างบัญชีลูกความและทนาย',
+    },
     request: {
       subjectEvents: 'กรุณากรอกหัวข้อและลำดับเหตุการณ์',
       tooLong: 'หัวข้อไม่เกิน {subject} ตัว, ลำดับเหตุการณ์ไม่เกิน {events} ตัว, ข้อความไม่เกิน {message} ตัว',
@@ -115,6 +119,10 @@ const messages = {
       lawyerCannotPost: 'Lawyers cannot create posts, but can comment',
     },
     ebook: { notFound: 'Book not found' },
+    follow: {
+      self: 'You cannot follow yourself',
+      notAllowed: 'Only client and lawyer accounts can follow each other',
+    },
     request: {
       subjectEvents: 'Please enter a subject and the sequence of events',
       tooLong: 'Subject up to {subject}, events up to {events}, message up to {message} characters',

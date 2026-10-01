@@ -4,7 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 // เว็บ: react-native-webview ใช้บนเว็บไม่ได้ จึงแสดงหน้า pdf.js เดียวกันใน iframe
-export default function PdfReader({ url, onMessage }) {
+// startPage ใช้ตอนเปิดเท่านั้น จึงไม่ใส่ใน deps (ไม่งั้นเอกสารจะโหลดใหม่) · darkPages = Settings > Reading
+export default function PdfReader({ url, onMessage, startPage = 1, darkPages = false }) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const html = useMemo(
@@ -12,9 +13,10 @@ export default function PdfReader({ url, onMessage }) {
       pdfViewerHtml(
         url,
         { background: colors.surfaceAlt, text: colors.icon },
-        { loading: t('ebook.pdfLoading'), noViewer: t('ebook.pdfNoViewer'), page: t('ebook.pdfPage'), openFailed: t('ebook.pdfOpenFailed') }
+        { loading: t('ebook.pdfLoading'), noViewer: t('ebook.pdfNoViewer'), page: t('ebook.pdfPage'), openFailed: t('ebook.pdfOpenFailed') },
+        { startPage, darkPages }
       ),
-    [url, colors, t]
+    [url, colors, t, darkPages]
   );
   const frameRef = useRef(null);
 

@@ -7,13 +7,12 @@ import { confirmAction } from '../../utils/format';
 import { useLanguage } from '../../context/LanguageContext';
 import { LANGUAGES } from '../../i18n';
 
-// หน้า Settings ตาม Figma — แสดงเฉพาะเมนูที่ใช้งานได้จริง (ตกลงกับเจ้าของแล้ว)
-// เมนูอื่นใน Figma (Notifications, Posting, Reading) ยังไม่ทำ
+// หน้า Settings ตาม Figma (ลำดับเมนูตามแบบ) — Posting แสดงเฉพาะลูกความ เพราะทนาย/admin โพสต์ไม่ได้
 export default function SettingsScreen({ navigation }) {
   const { t, lang } = useLanguage();
   const { colors, isDark, setDarkMode } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     const ok = await confirmAction(t('settings.logout'), t('settings.logoutConfirm'), t('settings.logout'));
@@ -25,8 +24,19 @@ export default function SettingsScreen({ navigation }) {
       <Text style={styles.section}>{t('settings.account')}</Text>
       <Row icon="user" label={t('settings.accountRow')} onPress={() => navigation.navigate('EditProfile')} />
       <Row icon="lock" label={t('settings.privacy')} onPress={() => navigation.navigate('ChangePassword')} />
+      <Row icon="bell" label={t('settings.notifications')} onPress={() => navigation.navigate('NotificationSettings')} />
+      {user?.role === 'CLIENT' && (
+        <Row icon="edit" label={t('settings.posting')} onPress={() => navigation.navigate('PostingSettings')} />
+      )}
 
       <Text style={styles.section}>{t('settings.preferences')}</Text>
+      <Row icon="book-open" label={t('settings.reading')} onPress={() => navigation.navigate('ReadingSettings')} />
+      <Row
+        icon="globe"
+        label={t('settings.language')}
+        value={LANGUAGES.find((l) => l.code === lang)?.label}
+        onPress={() => navigation.navigate('Language')}
+      />
       {/* แตะได้ทั้งแถว — สวิตช์เล็กกดยากบนมือถือ */}
       <TouchableOpacity
         style={styles.row}
@@ -45,12 +55,6 @@ export default function SettingsScreen({ navigation }) {
           thumbColor="#fff"
         />
       </TouchableOpacity>
-      <Row
-        icon="globe"
-        label={t('settings.language')}
-        value={LANGUAGES.find((l) => l.code === lang)?.label}
-        onPress={() => navigation.navigate('Language')}
-      />
 
       <Text style={styles.section}>{t('settings.support')}</Text>
       <Row icon="help-circle" label={t('settings.help')} onPress={() => navigation.navigate('Help')} />

@@ -22,3 +22,9 @@ export const removeAvatar = () => request('/users/me/avatar', { method: 'DELETE'
 
 export const changePassword = ({ currentPassword, newPassword }) =>
   request('/users/me/password', { method: 'PUT', body: { currentPassword, newPassword } });
+
+// ระบบผู้ติดตาม — follow/unfollow คืน { isFollowing, followerCount }
+export const follow = (userId) => request(`/users/${userId}/follow`, { method: 'PUT' });
+export const unfollow = (userId) => request(`/users/${userId}/follow`, { method: 'DELETE' });
+// type = 'followers' | 'following' — คืน { users: [{ id, firstName, lastName, role, avatarUrl, isFollowing, isSelf }] }
+export const getFollowList = (userId, type) => request(`/users/${userId}/${type}`);

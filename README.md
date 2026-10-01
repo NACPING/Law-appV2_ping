@@ -62,9 +62,12 @@ npx expo start              # สแกน QR ด้วย Expo Go
 | PATCH | `/api/notifications/:id/read` · `/api/notifications/read-all` | ทำเครื่องหมายว่าอ่านแล้ว |
 
 | GET | `/api/users/:id` | หน้า Profile: ข้อมูล + `stats` + โพสต์ (ทนาย: ความคิดเห็นล่าสุด) · เบอร์/อีเมลเห็นเฉพาะเจ้าของ หรือทนายที่เปิด `showContact` · โพสต์ไม่ระบุตัวตนไม่แสดงให้คนอื่น |
-| PATCH | `/api/users/me` | `{ firstName?, lastName?, phone?, bio? }` + ทนาย: `about?`, `showContact?` |
+| PATCH | `/api/users/me` | `{ firstName?, lastName?, phone?, bio?, notifyPosts?, notifyChat?, notifyCases? }` + ทนาย: `about?`, `showContact?` + ลูกความ: `postAnonymously?` |
 | PUT / DELETE | `/api/users/me/avatar` | เปลี่ยนรูปโปรไฟล์ (multipart `avatar` ≤ 5 MB) / ลบรูป — ไฟล์เก่าถูกลบให้ |
 | PUT | `/api/users/me/password` | `{ currentPassword, newPassword }` |
+| PUT / DELETE | `/api/users/:id/follow` | ติดตาม / เลิกติดตาม (ลูกความ/ทนายเท่านั้น, ตัวเองไม่ได้) — คืน `{ isFollowing, followerCount }` |
+| GET | `/api/users/:id/followers` · `/api/users/:id/following` | รายชื่อ + `isFollowing` (เราติดตามคนนั้นอยู่ไหม) |
+| GET | `/api/posts?feed=following` | แท็บ "ติดตาม": โพสต์ของคนที่ติดตาม (ไม่รวมไม่ระบุตัวตน) + โพสต์ที่คนที่ติดตามไปคอมเมนต์ |
 
 ทุก API ของ `/api/posts`, `/api/ebooks`, `/api/lawyer-requests`, `/api/chats`, `/api/notifications`, `/api/users` ต้องล็อกอิน
 

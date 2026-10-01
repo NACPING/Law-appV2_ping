@@ -5,7 +5,16 @@ const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 // theme = { background, text } พื้นรอบหน้ากระดาษ/ข้อความสถานะตามโหมดสว่าง-มืด (หน้ากระดาษยังขาวเสมอ)
 // labels = ข้อความสถานะตามภาษาที่เลือก (หน้า HTML เรียก t() เองไม่ได้)
 const DEFAULT_LABELS = { loading: 'Loading...', noViewer: 'PDF viewer unavailable', page: 'Page', openFailed: 'Cannot open: ' };
-export function pdfViewerHtml(pdfUrl, theme = { background: '#E9E9EC', text: '#555' }, labels = DEFAULT_LABELS) {
+// options = { startPage, darkPages } จาก Settings > Reading preferences
+//   startPage: เปิดแล้วเลื่อนไปหน้านี้ · darkPages: กลับสีหน้ากระดาษเป็นพื้นมืด
+//   หน้าที่กำลังอ่านส่งกลับไปเป็นข้อความ { type: 'page', page } (ให้แอปจำไว้)
+export function pdfViewerHtml(
+  pdfUrl,
+  theme = { background: '#E9E9EC', text: '#555' },
+  labels = DEFAULT_LABELS,
+  options = { startPage: 1, darkPages: false }
+) {
+  const startPage = Math.max(1, Math.floor(Number(options.startPage) || 1));
   const L = (s) => JSON.stringify(s); // ใส่ลงใน JS ของหน้า HTML อย่างปลอดภัย
   return `<!doctype html>
 <html><head>
@@ -16,6 +25,7 @@ export function pdfViewerHtml(pdfUrl, theme = { background: '#E9E9EC', text: '#5
   #pages { padding: 8px 0 48px; }
   .page { position: relative; margin: 0 auto 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
   .page canvas { display: block; width: 100%; height: 100%; }
+  ${options.darkPages ? '.page { background: #1b1b1b; } .page canvas { filter: invert(0.92) hue-rotate(180deg); }' : ''}
   #status { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: ${theme.text}; font-size: 15px; text-align: center; padding: 24px; }
   #counter { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(30,43,88,.85); color: #fff; font-size: 13px; padding: 5px 12px; border-radius: 14px; display: none; }
 </style>
@@ -84,7 +94,11 @@ export function pdfViewerHtml(pdfUrl, theme = { background: '#E9E9EC', text: '#5
         entries.forEach(function (e) { if (e.isIntersecting) render(e.target); });
       }, { rootMargin: '800px 0px' });
       var current = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) { if (e.isIntersecting) counterEl.textContent = ${L(labels.page + ' ')} + e.target.dataset.page + ' / ' + pdf.numPages; });
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          counterEl.textContent = ${L(labels.page + ' ')} + e.target.dataset.page + ' / ' + pdf.numPages;
+          send({ type: 'page', page: +e.target.dataset.page });
+        });
       }, { threshold: 0.5 });
 
       for (var i = 1; i <= pdf.numPages; i++) {
@@ -97,6 +111,10 @@ export function pdfViewerHtml(pdfUrl, theme = { background: '#E9E9EC', text: '#5
         io.observe(el);
         current.observe(el);
       }
+
+      // อ่านค้างไว้ → เลื่อนไปหน้านั้นเลย (ช่องว่างของทุกหน้าสร้างไว้แล้ว จึงเลื่อนได้ก่อนวาดเสร็จ)
+      var start = Math.min(${startPage}, pdf.numPages);
+      if (start > 1) pagesEl.children[start - 1].scrollIntoView();
     });
   }).catch(function (err) {
     statusEl.textContent = ${L(labels.openFailed)} + (err && err.message ? err.message : err);

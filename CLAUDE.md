@@ -26,7 +26,8 @@ src/
                 หน้าแรกทุกแท็บ: ☰ ซ้ายบน (MenuButton → Settings) · ขวาบน: ปุ่มเฉพาะหน้า (ค้นหา/หัวใจ) + กระดิ่ง
                 แต่ละแท็บมี Stack ของตัวเอง (CommunityNavigator, EbookNavigator, ChatNavigator, ProfileNavigator)
   screens/      auth, community, ebook, chat (คำขอปรึกษา + แชท + หน้า admin), notifications,
-                profile (UserProfileScreen ใช้ทั้งโปรไฟล์ตัวเองและคนอื่น, Settings, EditProfile, ChangePassword, Help)
+                profile (UserProfileScreen ใช้ทั้งโปรไฟล์ตัวเองและคนอื่น, Settings, EditProfile, ChangePassword, Help,
+                Language, AccountSwitchesScreen = Notifications/Posting, ReadingSettings)
   components/   ใช้ซ้ำ — KeyboardAware, BellButton, chat/*, community/*, consult/*, ebook/*
   context/      AuthContext (user, token), NotificationContext (ตัวเลขบนกระดิ่ง, real-time),
                 ThemeContext (Dark mode: useTheme, useThemedStyles), LanguageContext (useLanguage → t)
@@ -36,7 +37,7 @@ src/
   services/     เรียก API ทั้งหมดผ่าน apiClient.request() · socket.js = socket.io ตัวเดียวทั้งแอป
   utils/        formFile (แนบไฟล์ใน FormData), downloadPdf, format (timeAgo, confirmAction)
 backend/src/
-  controllers/  auth, post, ebook, lawyerRequest (รวมปิดเคส), chat, notification, user (โปรไฟล์)
+  controllers/  auth, post, ebook, lawyerRequest (รวมปิดเคส), chat, notification, user (โปรไฟล์), follow (ผู้ติดตาม)
   services/notify.js   สร้าง/รวม/ส่งการแจ้งเตือน (เก็บ type + params ไม่เก็บประโยค)
   i18n.js              ข้อความ error ไทย/อังกฤษ — req.t(key) ตาม header Accept-Language
   realtime.js          socket.io: ห้อง request:<id> (แชท), user:<id> (แจ้งเตือน)
@@ -52,7 +53,8 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 - **คำขอปรึกษา:** ลูกความส่ง → **admin อนุมัติในแอปพร้อมเลือกทนาย** หรือปฏิเสธพร้อมเหตุผล
 - **แชท:** เห็นเฉพาะลูกความและทนายของเคส — **admin อ่านแชทไม่ได้** · ส่งข้อความ รูป PDF emoji ได้ · ไฟล์แนบเก็บแบบไม่สาธารณะ (ลิงก์มีอายุ)
 - **ปิดเคส: ต้องยินยอมทั้งสองฝ่าย** — ทนายขอปิด → ลูกความยินยอม (ปิด, แชทอ่านอย่างเดียว) / ไม่ยินยอม (ดำเนินต่อ) · ทนายยกเลิกคำขอได้
-- **Profile:** ดูโปรไฟล์คนอื่นได้ (แตะชื่อใน Community) · เบอร์/อีเมลเห็นเฉพาะเจ้าของ ยกเว้นทนายเปิด `showContact` · โพสต์ไม่ระบุตัวตนไม่โผล่ในโปรไฟล์ที่คนอื่นเห็น · ไม่มี Friend/Follow/Message
+- **Profile:** ดูโปรไฟล์คนอื่นได้ (แตะชื่อใน Community) · เบอร์/อีเมลเห็นเฉพาะเจ้าของ ยกเว้นทนายเปิด `showContact` · โพสต์ไม่ระบุตัวตนไม่โผล่ในโปรไฟล์ที่คนอื่นเห็น · ไม่มีปุ่ม Message (แชทต้องผ่านคำขอปรึกษา)
+- **ผู้ติดตาม:** ติดตามแบบทางเดียว (ไม่ต้องตอบรับ) · ลูกความ/ทนายติดตามกันได้ทุกคน, admin ไม่ติดตามและไม่ถูกติดตาม · รายชื่อผู้ติดตามทุกคนดูได้ · แท็บ "ติดตาม" ในชุมชน = โพสต์ของคนที่ติดตาม + โพสต์ที่คนที่ติดตามไปคอมเมนต์ · แจ้งเตือนเมื่อมีผู้ติดตามใหม่ (รวมรายการ) และเมื่อคนที่ติดตามโพสต์ใหม่ (**ไม่รวมโพสต์ไม่ระบุตัวตน**)
 - **แจ้งเตือน:** ในแอปเท่านั้น (ไม่มี push) · รวมเรื่องเดียวกันเป็นรายการเดียว · เปิดดูแล้ว = อ่านแล้ว
 - **ไม่ทำ** หน้า admin สำหรับลบโพสต์/จัดการหนังสือในแอป — admin ใช้ Prisma Studio
 - ฟีเจอร์ที่มีเรื่อง "ใครทำอะไรได้" → **ถามเจ้าของก่อนเริ่มทำเสมอ**
@@ -84,5 +86,5 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 ## สถานะงาน
 
 เสร็จแล้ว: Register/Login · Posting · Reading (E-Book) · Lawyer_request · Chat · Notification · Profile & Settings (UC-01–08)
-Dark mode และ Language (ไทย/อังกฤษ) ใน Settings เสร็จแล้ว
-ยังไม่ทำ (ตกลงกับเจ้าของแล้ว): เมนู Settings ที่เหลือใน Figma (Notifications, Posting, Reading), ระบบเพื่อน/ผู้ติดตาม
+Settings ครบทุกเมนูตาม Figma: Account, Privacy, Notifications (ปิดตามประเภท — เก็บที่บัญชี, backend ไม่สร้างแจ้งเตือนที่ปิดไว้), Posting (เฉพาะลูกความ: ไม่ระบุตัวตนเป็นค่าเริ่มต้น), Reading (จำหน้าที่อ่าน + หน้ากระดาษโทนมืด — เก็บในเครื่อง), Language, Dark mode, Help
+ระบบผู้ติดตาม (Follow) เสร็จแล้ว

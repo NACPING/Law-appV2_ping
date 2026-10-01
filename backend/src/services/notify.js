@@ -31,9 +31,25 @@ async function pushCount(userId) {
  * aggregate: รวมกับรายการเรื่องเดียวกัน (type + targetId) ที่ยังไม่อ่าน แล้วเพิ่ม count
  * ไม่ส่งถ้าผู้รับคือคนที่ทำเอง และไม่ทำให้คำขอหลักล้มเหลวถ้าส่งแจ้งเตือนไม่สำเร็จ
  */
+// ประเภทการแจ้งเตือน → สวิตช์ใน Settings > Notifications (ที่ไม่อยู่ในนี้ = ความคืบหน้าคำขอ/เคส)
+const PREF_BY_TYPE = {
+  COMMENT: 'notifyPosts',
+  REPLY: 'notifyPosts',
+  CHAT_MESSAGE: 'notifyChat',
+  NEW_FOLLOWER: 'notifyFollows',
+  FOLLOWED_POST: 'notifyFollows',
+};
+
 async function notify({ userId, actorId = null, type, params = {}, targetType, targetId, aggregate = false }) {
   if (!userId || userId === actorId) return;
   try {
+    // ผู้รับปิดการแจ้งเตือนประเภทนี้ไว้ → ไม่สร้างเลย (ตัวเลขบนกระดิ่งก็ไม่เพิ่ม)
+    const prefs = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notifyPosts: true, notifyChat: true, notifyCases: true, notifyFollows: true },
+    });
+    if (!prefs || prefs[PREF_BY_TYPE[type] ?? 'notifyCases'] === false) return;
+
     const paramsJson = JSON.stringify(params);
     let notification = null;
 

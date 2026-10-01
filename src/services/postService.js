@@ -4,7 +4,8 @@ import { appendFile } from '../utils/formFile';
 export const MAX_IMAGES = 5;
 
 // Use Case: Posting
-export const getPosts = () => request('/posts'); // { posts }
+// feed = 'following' → แท็บ "ติดตาม" (โพสต์ของคนที่ติดตาม + โพสต์ที่คนที่ติดตามไปคอมเมนต์)
+export const getPosts = (feed) => request(feed ? `/posts?feed=${feed}` : '/posts'); // { posts }
 export const getPost = (id) => request(`/posts/${id}`); // { post, comments }
 export const deletePost = (id) => request(`/posts/${id}`, { method: 'DELETE' });
 

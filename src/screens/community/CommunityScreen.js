@@ -31,10 +31,13 @@ export default function CommunityScreen({ navigation }) {
   const [error, setError] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // แท็บ "ทั้งหมด" / "ติดตาม" — admin ไม่อยู่ในระบบผู้ติดตาม จึงไม่มีแท็บ
+  const canFollow = user?.role === 'CLIENT' || user?.role === 'LAWYER';
+  const [feed, setFeed] = useState('all');
 
   const load = useCallback(async () => {
     try {
-      const { posts: data } = await postService.getPosts();
+      const { posts: data } = await postService.getPosts(feed === 'following' ? 'following' : undefined);
       setPosts(data);
       setError('');
     } catch (e) {
@@ -43,7 +46,14 @@ export default function CommunityScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [feed]);
+
+  const switchFeed = (next) => {
+    if (next === feed) return;
+    setLoading(true);
+    setPosts([]);
+    setFeed(next); // load เปลี่ยนตาม feed → useFocusEffect โหลดใหม่ให้เอง
+  };
 
   // โหลดใหม่ทุกครั้งที่กลับมาหน้านี้ (เช่น หลังสร้างโพสต์/คอมเมนต์)
   useFocusEffect(
@@ -79,16 +89,49 @@ export default function CommunityScreen({ navigation }) {
     return posts.filter((p) => `${p.title} ${p.content}`.toLowerCase().includes(q));
   }, [posts, query]);
 
+  const tabs = canFollow ? (
+    <View style={styles.tabs} accessibilityRole="tablist">
+      {[
+        ['all', t('community.tabAll')],
+        ['following', t('community.tabFollowing')],
+      ].map(([key, label]) => (
+        <TouchableOpacity
+          key={key}
+          style={[styles.tab, feed === key && styles.tabActive]}
+          onPress={() => switchFeed(key)}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: feed === key }}
+        >
+          <Text style={[styles.tabText, feed === key && styles.tabTextActive]}>{label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ) : null;
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.accent} />
+      <View style={styles.container}>
+        {tabs}
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
       </View>
     );
   }
 
+  const emptyText =
+    error ||
+    (query
+      ? t('community.noResults')
+      : feed === 'following'
+        ? t('community.emptyFollowing')
+        : canPost
+          ? t('community.emptyCanPost')
+          : t('community.empty'));
+
   return (
     <View style={styles.container}>
+      {tabs}
       {searchOpen && (
         <View style={styles.searchBar}>
           <Ionicons name="search" size={16} color={colors.textMuted} />
@@ -126,9 +169,7 @@ export default function CommunityScreen({ navigation }) {
           />
         }
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {error || (query ? t('community.noResults') : canPost ? t('community.emptyCanPost') : t('community.empty'))}
-          </Text>
+          <Text style={styles.empty}>{emptyText}</Text>
         }
       />
 
@@ -151,6 +192,18 @@ const makeStyles = (c) =>
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background },
     list: { paddingBottom: 96 },
+    tabs: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      marginTop: 8,
+      padding: 3,
+      borderRadius: 18,
+      backgroundColor: c.surfaceAlt,
+    },
+    tab: { flex: 1, paddingVertical: 7, borderRadius: 15, alignItems: 'center' },
+    tabActive: { backgroundColor: c.primary },
+    tabText: { fontSize: 13, fontWeight: '600', color: c.textMuted },
+    tabTextActive: { color: c.onPrimary },
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',

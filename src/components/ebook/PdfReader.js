@@ -6,7 +6,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 // มือถือ: WebView + pdf.js (ใช้ได้ใน Expo Go)
-export default function PdfReader({ url, onMessage }) {
+// startPage ใช้ตอนเปิดเท่านั้น จึงไม่ใส่ใน deps (ไม่งั้นเอกสารจะโหลดใหม่) · darkPages = Settings > Reading
+export default function PdfReader({ url, onMessage, startPage = 1, darkPages = false }) {
   const { colors } = useTheme();
   const { t } = useLanguage();
   const html = useMemo(
@@ -14,9 +15,10 @@ export default function PdfReader({ url, onMessage }) {
       pdfViewerHtml(
         url,
         { background: colors.surfaceAlt, text: colors.icon },
-        { loading: t('ebook.pdfLoading'), noViewer: t('ebook.pdfNoViewer'), page: t('ebook.pdfPage'), openFailed: t('ebook.pdfOpenFailed') }
+        { loading: t('ebook.pdfLoading'), noViewer: t('ebook.pdfNoViewer'), page: t('ebook.pdfPage'), openFailed: t('ebook.pdfOpenFailed') },
+        { startPage, darkPages }
       ),
-    [url, colors, t]
+    [url, colors, t, darkPages]
   );
   return (
     <WebView

@@ -4,6 +4,7 @@ import CommunityScreen from '../screens/community/CommunityScreen';
 import PostDetailScreen from '../screens/community/PostDetailScreen';
 import CreatePostScreen from '../screens/community/CreatePostScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import FollowListScreen from '../screens/profile/FollowListScreen';
 import MenuButton from '../components/MenuButton';
 import { useStackScreenOptions } from './stackOptions';
 import { useLanguage } from '../context/LanguageContext';
@@ -24,6 +25,7 @@ export default function CommunityNavigator() {
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: t('nav.createPost') }} />
       {/* แตะชื่อผู้เขียนโพสต์/คอมเมนต์ → โปรไฟล์ของคนนั้น */}
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: t('nav.profile') }} />
+      <Stack.Screen name="FollowList" component={FollowListScreen} options={{ title: '' }} />
     </Stack.Navigator>
   );
 }

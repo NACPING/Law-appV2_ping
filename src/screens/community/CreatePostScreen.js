@@ -28,7 +28,8 @@ export default function CreatePostScreen({ navigation }) {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  // Settings > Posting: เปิดหน้ามาแล้วเลือกไม่ระบุตัวตนไว้ให้ (ยังเปลี่ยนได้ทีละโพสต์)
+  const [isAnonymous, setIsAnonymous] = useState(Boolean(user?.postAnonymously));
   const [images, setImages] = useState([]); // assets จาก expo-image-picker
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
