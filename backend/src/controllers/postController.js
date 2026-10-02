@@ -9,6 +9,29 @@ const MAX_COMMENT = 2000;
 
 const authorSelect = { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } };
 
+// รีแอคชัน: 1 คนเลือกได้ 1 แบบต่อโพสต์ · ลูกความ/ทนายกดได้, admin ไม่กด
+const REACTION_TYPES = ['LIKE', 'LOVE', 'SAD', 'THANKS'];
+const REACTING_ROLES = ['CLIENT', 'LAWYER'];
+
+// include ที่ทุกหน้าใช้ดึงโพสต์ (feed, รายละเอียด, โปรไฟล์) — ต้องมี reactions เพื่อนับจำนวนแต่ละแบบ
+const postInclude = {
+  author: authorSelect,
+  images: { orderBy: { order: 'asc' } },
+  _count: { select: { comments: true } },
+  reactions: { select: { type: true, userId: true } },
+};
+
+// จำนวนแต่ละแบบ + แบบที่ผู้ใช้คนนี้กดไว้
+function reactionSummary(req, reactions = []) {
+  const counts = Object.fromEntries(REACTION_TYPES.map((type) => [type, 0]));
+  for (const r of reactions) counts[r.type] = (counts[r.type] ?? 0) + 1;
+  return {
+    reactions: counts,
+    reactionCount: reactions.length,
+    myReaction: reactions.find((r) => r.userId === req.user.userId)?.type ?? null,
+  };
+}
+
 // รูปที่อัปโหลดเก็บเป็น path "/uploads/..." — แปลงเป็น URL เต็มตาม host ที่แอปเรียกเข้ามา
 // (มือถือเรียกผ่าน IP ของคอม จึงใช้ localhost ตายตัวไม่ได้)
 const absoluteUrl = (req, url) => (url.startsWith('/') ? `${req.protocol}://${req.get('host')}${url}` : url);
@@ -24,6 +47,8 @@ function toPostDto(req, post) {
     isMine: post.authorId === req.user.userId,
     images: post.images.map((img) => absoluteUrl(req, img.url)),
     commentCount: post._count?.comments ?? post.comments?.length ?? 0,
+    ...reactionSummary(req, post.reactions),
+    canReact: REACTING_ROLES.includes(req.user.role),
     createdAt: post.createdAt,
   };
 }
@@ -39,6 +64,7 @@ const toCommentDto = (req, c) => ({
 
 // หน้า Profile ใช้รูปแบบโพสต์เดียวกัน
 exports.authorSelect = authorSelect;
+exports.postInclude = postInclude;
 exports.toPostDto = toPostDto;
 
 const canModify = (req, ownerId) => ownerId === req.user.userId || req.user.role === 'ADMIN';
@@ -56,11 +82,7 @@ exports.list = async (req, res) => {
     where,
     orderBy: { createdAt: 'desc' },
     take: 50,
-    include: {
-      author: authorSelect,
-      images: { orderBy: { order: 'asc' } },
-      _count: { select: { comments: true } },
-    },
+    include: postInclude,
   });
   res.json({ posts: posts.map((p) => toPostDto(req, p)) });
 };
@@ -70,8 +92,7 @@ exports.detail = async (req, res) => {
   const post = await prisma.post.findUnique({
     where: { id: req.params.id },
     include: {
-      author: authorSelect,
-      images: { orderBy: { order: 'asc' } },
+      ...postInclude,
       comments: { orderBy: { createdAt: 'asc' }, include: { author: authorSelect } },
     },
   });
@@ -114,7 +135,7 @@ exports.create = async (req, res) => {
         authorId: req.user.userId,
         images: { create: imageUrls.map((url, order) => ({ url, order })) },
       },
-      include: { author: authorSelect, images: { orderBy: { order: 'asc' } }, _count: { select: { comments: true } } },
+      include: postInclude,
     });
   } catch (err) {
     removeUploadedFiles(imageUrls);
@@ -192,6 +213,67 @@ exports.addComment = async (req, res) => {
       aggregate: true,
     });
   }
+};
+
+// ตรวจโพสต์และสิทธิ์กดรีแอคชัน — คืน null ถ้าส่ง error ไปแล้ว
+async function findReactablePost(req, res) {
+  if (!REACTING_ROLES.includes(req.user.role)) {
+    res.status(403).json({ message: req.t('post.reactNotAllowed') });
+    return null;
+  }
+  const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { id: true, title: true, authorId: true } });
+  if (!post) res.status(404).json({ message: req.t('post.notFound') });
+  return post;
+}
+
+const reactionsOf = async (req, postId) =>
+  reactionSummary(req, await prisma.postReaction.findMany({ where: { postId }, select: { type: true, userId: true } }));
+
+// PUT /api/posts/:id/reaction { type } — กดใหม่หรือเปลี่ยนแบบ (การยกเลิกใช้ DELETE)
+exports.react = async (req, res) => {
+  const type = String(req.body?.type ?? '');
+  if (!REACTION_TYPES.includes(type)) return res.status(400).json({ message: req.t('post.reactInvalid') });
+  const post = await findReactablePost(req, res);
+  if (!post) return;
+
+  const key = { postId: post.id, userId: req.user.userId };
+  const existing = await prisma.postReaction.findUnique({ where: { postId_userId: key } });
+  await prisma.postReaction.upsert({ where: { postId_userId: key }, create: { ...key, type }, update: { type } });
+  res.json(await reactionsOf(req, post.id));
+
+  // แจ้งเจ้าของโพสต์เฉพาะตอนกดครั้งแรก (เปลี่ยนแบบไม่แจ้งซ้ำ) — รวมเป็นรายการเดียวต่อโพสต์
+  // โพสต์ไม่ระบุตัวตนก็แจ้งได้ เพราะผู้รับคือเจ้าของโพสต์เอง ไม่ได้เผยชื่อผู้เขียนให้ใคร
+  if (existing) return;
+  const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { firstName: true, lastName: true } });
+  await notify({
+    userId: post.authorId,
+    actorId: req.user.userId,
+    type: 'REACTION',
+    params: { name: nameOf(me), reaction: type, postTitle: preview(post.title, 40) },
+    targetType: 'post',
+    targetId: post.id,
+    aggregate: true,
+  });
+};
+
+// DELETE /api/posts/:id/reaction — ยกเลิกรีแอคชันของตัวเอง
+exports.unreact = async (req, res) => {
+  const post = await findReactablePost(req, res);
+  if (!post) return;
+  await prisma.postReaction.deleteMany({ where: { postId: post.id, userId: req.user.userId } });
+  res.json(await reactionsOf(req, post.id));
+};
+
+// GET /api/posts/:id/reactions — รายชื่อคนที่กด (ทุกคนดูได้) ใหม่สุดก่อน
+exports.reactions = async (req, res) => {
+  const post = await prisma.post.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!post) return res.status(404).json({ message: req.t('post.notFound') });
+  const rows = await prisma.postReaction.findMany({
+    where: { postId: post.id },
+    orderBy: { updatedAt: 'desc' },
+    include: { user: authorSelect },
+  });
+  res.json({ users: rows.map((r) => ({ ...r.user, reaction: r.type, isSelf: r.userId === req.user.userId })) });
 };
 
 // DELETE /api/posts/:id/comments/:commentId — เจ้าของคอมเมนต์หรือ ADMIN (คำตอบใต้คอมเมนต์ถูกลบด้วย)

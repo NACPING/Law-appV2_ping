@@ -1,4 +1,4 @@
-# Law App AI
+# LegalMate
 
 แอปให้คำปรึกษากฎหมาย — Expo (React Native, JS) + Express/Prisma backend
 
@@ -53,6 +53,9 @@ npm run share     # เปิดอุโมงค์ Cloudflare ให้ backe
 | DELETE | `/api/posts/:id` | เฉพาะเจ้าของโพสต์หรือ ADMIN |
 | POST | `/api/posts/:id/comments` | `{ content, parentId? }` — ใส่ `parentId` เพื่อตอบกลับ |
 | DELETE | `/api/posts/:id/comments/:commentId` | เฉพาะเจ้าของคอมเมนต์หรือ ADMIN (ลบคำตอบใต้คอมเมนต์ด้วย) |
+| PUT | `/api/posts/:id/reaction` | `{ type }` = `LIKE` \| `LOVE` \| `SAD` \| `THANKS` — กดใหม่/เปลี่ยนแบบ (CLIENT, LAWYER เท่านั้น) |
+| DELETE | `/api/posts/:id/reaction` | ยกเลิกรีแอคชันของตัวเอง |
+| GET | `/api/posts/:id/reactions` | รายชื่อคนที่กด พร้อมแบบที่กด (ทุกคนดูได้) |
 
 | GET | `/api/ebooks/categories` | หนังสือแยกตามหมวด (หน้า E-Book) |
 | GET | `/api/ebooks?q=&category=` | ค้นหาจากชื่อ/คำอธิบาย |

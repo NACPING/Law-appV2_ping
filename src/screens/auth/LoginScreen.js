@@ -10,7 +10,6 @@ import KeyboardAware from '../../components/KeyboardAware';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthHeader from '../../components/AuthHeader';
 import AuthInput from '../../components/AuthInput';
-import SocialLogin from '../../components/SocialLogin';
 import { useAuth } from '../../context/AuthContext';
 import * as authService from '../../services/authService';
 import { useThemedStyles } from '../../context/ThemeContext';
@@ -96,8 +95,6 @@ export default function LoginScreen({ navigation, route }) {
           >
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('auth.login')}</Text>}
           </TouchableOpacity>
-
-          <SocialLogin />
         </ScrollView>
       </KeyboardAware>
     </SafeAreaView>

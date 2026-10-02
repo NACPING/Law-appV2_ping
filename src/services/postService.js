@@ -31,5 +31,10 @@ export async function createPost({ title, content, isAnonymous, images = [] }) {
 export const addComment = (postId, { content, parentId }) =>
   request(`/posts/${postId}/comments`, { method: 'POST', body: { content, parentId } });
 
+// รีแอคชัน — ตอบกลับเป็น { reactions, reactionCount, myReaction } ล่าสุดของโพสต์
+export const react = (postId, type) => request(`/posts/${postId}/reaction`, { method: 'PUT', body: { type } });
+export const unreact = (postId) => request(`/posts/${postId}/reaction`, { method: 'DELETE' });
+export const getReactions = (postId) => request(`/posts/${postId}/reactions`); // { users: [{ ...user, reaction }] }
+
 export const deleteComment = (postId, commentId) =>
   request(`/posts/${postId}/comments/${commentId}`, { method: 'DELETE' }); // { commentCount }

@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import LogoSplash from '../components/LogoSplash';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
+
+const SPLASH_MIN_MS = 1000;
 
 // ยังไม่ล็อกอิน -> AuthNavigator (Login/Register), ล็อกอินแล้ว -> AppNavigator (Bottom Tabs)
 export default function RootNavigator() {
@@ -27,13 +29,14 @@ export default function RootNavigator() {
     };
   }, [isDark, colors]);
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
-  }
+  // โชว์หน้าโลโก้อย่างน้อยสักครู่ — โหลดเร็วมากแล้วหน้าโลโก้จะแวบหายจนดูเหมือนกระพริบ
+  const [minTimeDone, setMinTimeDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setMinTimeDone(true), SPLASH_MIN_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading || !minTimeDone) return <LogoSplash />;
 
   return (
     <NavigationContainer theme={navTheme}>

@@ -1,4 +1,4 @@
-# Use Cases — Law App AI
+# Use Cases — LegalMate
 
 Actors: **Lawyer**, **Client**, **Admin**
 

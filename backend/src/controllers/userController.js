@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../config/db');
 const { removeUploadedFiles } = require('../middlewares/upload');
 const { publicUser } = require('./authController');
-const { authorSelect, toPostDto } = require('./postController');
+const { postInclude, toPostDto } = require('./postController');
 const { FOLLOWABLE_ROLES } = require('./followController');
 
 const MAX_NAME = 50;
@@ -29,7 +29,7 @@ exports.profile = async (req, res) => {
       where: postWhere,
       orderBy: { createdAt: 'desc' },
       take: RECENT_LIMIT,
-      include: { author: authorSelect, images: { orderBy: { order: 'asc' } }, _count: { select: { comments: true } } },
+      include: postInclude,
     }),
     // ทนายโพสต์ไม่ได้ จึงแสดงความคิดเห็นล่าสุดและจำนวนเคสที่ดูแลแทน
     isLawyer ? prisma.comment.count({ where: { authorId: user.id } }) : 0,

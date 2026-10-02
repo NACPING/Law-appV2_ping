@@ -19,6 +19,9 @@ router.post('/', clientsOnly, uploadPostImages, posts.create);
 router.get('/:id', posts.detail);
 router.delete('/:id', posts.remove);
 router.post('/:id/comments', posts.addComment);
+router.put('/:id/reaction', posts.react);
+router.delete('/:id/reaction', posts.unreact);
+router.get('/:id/reactions', posts.reactions);
 router.delete('/:id/comments/:commentId', posts.removeComment);
 
 module.exports = router;

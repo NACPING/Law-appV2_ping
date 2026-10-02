@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthHeader from '../../components/AuthHeader';
 import AuthInput from '../../components/AuthInput';
 import DatePickerField from '../../components/DatePickerField';
-import SocialLogin from '../../components/SocialLogin';
 import * as authService from '../../services/authService';
 import { useThemedStyles } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -135,8 +134,6 @@ export default function RegisterScreen({ navigation }) {
           <TouchableOpacity style={styles.loginLink} onPress={() => navigation.popTo('Login')}>
             <Text style={styles.loginText}>{t('auth.login')}</Text>
           </TouchableOpacity>
-
-          <SocialLogin />
         </ScrollView>
       </KeyboardAware>
     </SafeAreaView>

@@ -35,6 +35,7 @@ async function pushCount(userId) {
 const PREF_BY_TYPE = {
   COMMENT: 'notifyPosts',
   REPLY: 'notifyPosts',
+  REACTION: 'notifyPosts',
   CHAT_MESSAGE: 'notifyChat',
   NEW_FOLLOWER: 'notifyFollows',
   FOLLOWED_POST: 'notifyFollows',

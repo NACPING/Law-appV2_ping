@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import LawyerBadge from './LawyerBadge';
+import ReactionBar from './ReactionBar';
 import { useThemedStyles } from '../../context/ThemeContext';
 import { displayName, timeAgo } from '../../utils/format';
 import { useLanguage } from '../../context/LanguageContext';
@@ -57,6 +58,7 @@ export default function PostCard({ post, compact = false, onPress, onImagePress,
           ) : (
             <ImageGallery images={post.images} onImagePress={onImagePress} />
           ))}
+        <ReactionBar post={post} />
       </View>
     </Wrapper>
   );

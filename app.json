@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "LawAppAI",
-    "slug": "LawAppAI",
+    "name": "LegalMate",
+    "slug": "LegalMate",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "lawappai",
+    "scheme": "legalmate",
     "userInterfaceStyle": "light",
     "plugins": [
       [
@@ -13,7 +13,29 @@
           "photosPermission": "แอปต้องการเข้าถึงรูปภาพเพื่อแนบรูปในโพสต์"
         }
       ],
-      "expo-sharing"
-    ]
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#121212"
+          }
+        }
+      ]
+    ],
+    "icon": "./assets/app-icon.png",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }

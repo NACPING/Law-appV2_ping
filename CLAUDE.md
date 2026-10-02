@@ -1,4 +1,8 @@
-# Law App AI — คู่มือสำหรับ Claude / ผู้พัฒนา
+# LegalMate — คู่มือสำหรับ Claude / ผู้พัฒนา
+
+ชื่อแอป **LegalMate** (เดิม Law App AI — เจ้าของเปลี่ยนชื่อแล้ว) · โฟลเดอร์ยังชื่อ `Law-appAI_APP` เหมือนเดิม
+โลโก้ = นกพิราบอย่างเดียว ไม่มีกรอบ (ไอคอน `dove` ของ FontAwesome5) · ในแอป: `components/LogoSplash` (หน้าโลโก้ตอนเปิดแอป) นกเปลี่ยนสีตามธีม — มืด = ขาว, สว่าง = กรม
+รูปใน `assets/` (app-icon = นกกรมบนพื้นขาวทึบ, adaptive-icon, splash-icon + splash-icon-dark, favicon) · **Expo Go แสดง `icon` เป็นหน้าโหลด** และขึ้นก่อนแอปรู้ธีม จึงตามธีมไม่ได้ · ไอคอนพื้นโปร่งใส Expo Go จะวาดกรอบเทาแปลกๆ → ใช้พื้นทึบ · Expo Go **จำรูปไอคอนตามชื่อไฟล์** — เปลี่ยนรูปแล้วต้องเปลี่ยนชื่อไฟล์ด้วย
 
 แอปปรึกษากฎหมาย (มือถือ) สำหรับลูกความ ทนาย และผู้ดูแลระบบ
 เจ้าของโปรเจกต์คุยภาษาไทย — ตอบเป็นภาษาไทย ใช้คำอธิบายที่เข้าใจง่าย
@@ -55,6 +59,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 - **ปิดเคส: ต้องยินยอมทั้งสองฝ่าย** — ทนาย**หรือลูกความ**ขอปิด → อีกฝ่ายยินยอม (ปิด, แชทอ่านอย่างเดียว) / ไม่ยินยอม (ดำเนินต่อ) · คนขอยกเลิกคำขอของตัวเองได้ · ค้างได้ทีละ 1 คำขอ (`closeRequestedBy` = LAWYER | CLIENT)
 - **Profile:** ดูโปรไฟล์คนอื่นได้ (แตะชื่อใน Community) · เบอร์/อีเมลเห็นเฉพาะเจ้าของ ยกเว้นทนายเปิด `showContact` · โพสต์ไม่ระบุตัวตนไม่โผล่ในโปรไฟล์ที่คนอื่นเห็น · ไม่มีปุ่ม Message (แชทต้องผ่านคำขอปรึกษา)
 - **ผู้ติดตาม:** ติดตามแบบทางเดียว (ไม่ต้องตอบรับ) · ลูกความ/ทนายติดตามกันได้ทุกคน, admin ไม่ติดตามและไม่ถูกติดตาม · รายชื่อผู้ติดตามทุกคนดูได้ · แท็บ "ติดตาม" ในชุมชน = โพสต์ของคนที่ติดตาม + โพสต์ที่คนที่ติดตามไปคอมเมนต์ · แจ้งเตือนเมื่อมีผู้ติดตามใหม่ (รวมรายการ) และเมื่อคนที่ติดตามโพสต์ใหม่ (**ไม่รวมโพสต์ไม่ระบุตัวตน**)
+- **รีแอคชันโพสต์:** 4 แบบ 👍 ถูกใจ ❤️ ให้กำลังใจ 😢 เศร้า 🙏 ขอบคุณ (ไม่มีขำ/โกรธ เพราะโพสต์เป็นเรื่องปัญหาของคน) · 1 คน 1 แบบต่อโพสต์ · ลูกความ/ทนายกดได้, admin ไม่กด · ทุกคนดูรายชื่อคนที่กดได้ · แจ้งเตือนเจ้าของโพสต์แบบรวมรายการ (เฉพาะกดครั้งแรก เปลี่ยนแบบไม่แจ้ง, อยู่ใต้สวิตช์ notifyPosts)
 - **แจ้งเตือน:** ในแอปเท่านั้น (ไม่มี push) · รวมเรื่องเดียวกันเป็นรายการเดียว · เปิดดูแล้ว = อ่านแล้ว
 - **ไม่ทำ** หน้า admin สำหรับลบโพสต์/จัดการหนังสือในแอป — admin ใช้ Prisma Studio
 - ฟีเจอร์ที่มีเรื่อง "ใครทำอะไรได้" → **ถามเจ้าของก่อนเริ่มทำเสมอ**
@@ -77,6 +82,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 - **Dark mode: ห้ามเขียนสีตรงๆ** — สไตล์เขียนเป็น `const makeStyles = (c) => StyleSheet.create({...})` แล้ว `useThemedStyles(makeStyles)` ใน component · สีใน JSX ใช้ `const { colors } = useTheme()` · ตัวอักษร/ไอคอนสีแบรนด์ใช้ `accent` (ไม่ใช่ `primary` ซึ่งมืดเกินบนพื้นมืด) · `navigation.setOptions` ใน useLayoutEffect ต้องใส่ `colors`/`styles` ใน deps ไม่งั้นปุ่มบน header ค้างสีเดิม
 - **ภาษา (ไทย/อังกฤษ): ห้ามเขียนข้อความตรงๆ** — แอปใช้ `t('key')` + เพิ่ม key ทั้ง `i18n/th.js` และ `en.js` · backend ใช้ `req.t('key')` (`backend/src/i18n.js`) · การแจ้งเตือน/ข้อความระบบใหม่ เก็บเป็นรหัส + params แล้วเพิ่มคำแปลใน `notif.*` / `chat.system.*` · component ที่แสดงข้อความผ่าน utils (timeAgo, displayName) ต้องเรียก `useLanguage()` ไม่งั้นไม่ render ใหม่ตอนเปลี่ยนภาษา
 - **Android:** ปุ่มที่อยู่นอกกรอบของ View แม่ (position absolute ล้นออกไป) **กดไม่ได้** · ใน header ส่วนที่ล้นจะ**ถูกตัดขอบ**ด้วย (เคยเกิดกับตัวเลขบนกระดิ่ง) → เผื่อ padding ให้อยู่ในกรอบ
+- **Android: ห้ามสลับ `secureTextEntry` เพื่อแสดง/ซ่อนรหัส** — ประเภทช่องเพี้ยน แป้นพิมพ์สลับภาษาเอง (`keyboardType="visible-password"` ก็ไม่ช่วย) · ใช้ `components/AuthInput` ซึ่งให้ช่องเป็นรหัสผ่านตลอด แล้วแสดงรหัสด้วย TextInput แก้ไขไม่ได้ทับไว้ (ใช้ `Text` ทับแล้วตัวหนังสือตกลงข้างล่าง)
 - **Expo Go Android + expo-document-picker:** `copyToCacheDirectory: true` ทำให้อ่านไฟล์ไม่ได้ ("Missing 'READ' permission") → ใช้ `false` บน Android
 - **WebView ของ Android แสดง PDF ไม่ได้** → ตัวอ่าน PDF ใช้ pdf.js (`components/ebook/pdfViewerHtml.js`) · บนเว็บใช้ iframe `allow-scripts allow-same-origin`
 - React Navigation 7: ย้อนกลับไปหน้าที่มีอยู่แล้วใช้ `popTo` (`navigate` จะซ้อนหน้าใหม่)
@@ -88,3 +94,4 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 เสร็จแล้ว: Register/Login · Posting · Reading (E-Book) · Lawyer_request · Chat · Notification · Profile & Settings (UC-01–08)
 Settings ครบทุกเมนูตาม Figma: Account, Privacy, Notifications (ปิดตามประเภท — เก็บที่บัญชี, backend ไม่สร้างแจ้งเตือนที่ปิดไว้), Posting (เฉพาะลูกความ: ไม่ระบุตัวตนเป็นค่าเริ่มต้น), Reading (จำหน้าที่อ่าน + หน้ากระดาษโทนมืด — เก็บในเครื่อง), Language, Dark mode, Help
 ระบบผู้ติดตาม (Follow) เสร็จแล้ว
+รีแอคชันโพสต์ (แตะ = ถูกใจ, กดค้าง = เลือกแบบ, หน้ารายชื่อ `PostReactions`) เสร็จแล้ว

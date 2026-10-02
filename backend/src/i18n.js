@@ -40,6 +40,8 @@ const messages = {
       commentNotFound: 'ไม่พบความคิดเห็น',
       noPermDeleteComment: 'ไม่มีสิทธิ์ลบความคิดเห็นนี้',
       lawyerCannotPost: 'ทนายความไม่สามารถสร้างโพสต์ได้ แต่แสดงความคิดเห็นได้',
+      reactNotAllowed: 'บัญชีนี้แสดงความรู้สึกต่อโพสต์ไม่ได้',
+      reactInvalid: 'รูปแบบความรู้สึกไม่ถูกต้อง',
     },
     ebook: { notFound: 'ไม่พบหนังสือ' },
     follow: {
@@ -117,6 +119,8 @@ const messages = {
       commentNotFound: 'Comment not found',
       noPermDeleteComment: 'You cannot delete this comment',
       lawyerCannotPost: 'Lawyers cannot create posts, but can comment',
+      reactNotAllowed: 'This account cannot react to posts',
+      reactInvalid: 'Invalid reaction',
     },
     ebook: { notFound: 'Book not found' },
     follow: {

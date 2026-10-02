@@ -26,7 +26,7 @@ model User {
   // ทนายเลือกได้ว่าจะให้ผู้อื่นเห็นเบอร์โทร/อีเมลในโปรไฟล์ไหม (ลูกความ = ซ่อนเสมอ)
   showContact Boolean   @default(false)
   // Settings > Notifications: ปิดแล้ว backend ไม่สร้างการแจ้งเตือนประเภทนั้น
-  notifyPosts Boolean   @default(true) // คอมเมนต์/ตอบกลับในโพสต์
+  notifyPosts Boolean   @default(true) // คอมเมนต์/ตอบกลับ/รีแอคชันในโพสต์
   notifyChat  Boolean   @default(true) // ข้อความแชท
   notifyCases Boolean   @default(true) // ความคืบหน้าคำขอ/เคส (อนุมัติ, ปฏิเสธ, มอบหมาย, ปิดเคส, คำขอใหม่ของ admin)
   // Settings > Posting: เปิดหน้าสร้างโพสต์มาแล้วเลือก "ไม่ระบุตัวตน" ไว้ให้ (เฉพาะ CLIENT)
@@ -37,6 +37,7 @@ model User {
   posts       Post[]
   comments    Comment[]
   favorites   Favorite[]
+  reactions   PostReaction[]
 
   lawyerRequests   LawyerRequest[] @relation("RequestClient")
   assignedRequests LawyerRequest[] @relation("RequestLawyer")
@@ -49,7 +50,7 @@ model User {
 }
 
 // การแจ้งเตือนในแอป (กระดิ่ง) — เรื่องเดียวกันที่ยังไม่อ่านจะรวมเป็นรายการเดียว (count) เช่น "ได้รับข้อความใหม่ (3)"
-// type: COMMENT | REPLY | CHAT_MESSAGE | NEW_REQUEST | REQUEST_APPROVED | REQUEST_REJECTED | CASE_ASSIGNED
+// type: COMMENT | REPLY | REACTION | CHAT_MESSAGE | NEW_REQUEST | REQUEST_APPROVED | REQUEST_REJECTED | CASE_ASSIGNED
 //       | CLOSE_REQUESTED | CLOSE_CANCELLED | CLOSE_ACCEPTED | CLOSE_DECLINED
 // targetType: post | request | chat  (บอกว่าแตะแล้วไปหน้าไหน)
 model Notification {
@@ -147,9 +148,24 @@ model Post {
   author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
   images      PostImage[]
   comments    Comment[]
+  reactions   PostReaction[]
   createdAt   DateTime    @default(now())
 
   @@index([createdAt])
+}
+
+// รีแอคชันโพสต์ (แบบเฟซบุ๊ก) — 1 คนเลือกได้ 1 แบบต่อโพสต์ · ลูกความ/ทนายกดได้, admin ไม่กด
+// type: LIKE (ถูกใจ) | LOVE (ให้กำลังใจ) | SAD (เศร้า) | THANKS (ขอบคุณ)
+model PostReaction {
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([postId, userId])
 }
 
 model PostImage {
