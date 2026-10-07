@@ -19,6 +19,11 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+// ตรงกับ backend: เลขบัตรประชาชน 13 หลัก · เบอร์โทร 10 หลัก (ไม่บังคับ) · ใบอนุญาตทนาย 8–10 ตัว (อะไรก็ได้)
+const ID_CARD_PATTERN = /^\d{13}$/;
+const PHONE_PATTERN = /^\d{10}$/;
+const LICENSE_MIN = 8;
+const LICENSE_MAX = 10;
 
 // label/placeholder = key ใน i18n (แปลตอนแสดงผล)
 const ROLES = [
@@ -26,14 +31,18 @@ const ROLES = [
   { value: 'lawyer', label: 'auth.roleLawyer' },
 ];
 
+// digits = ช่องตัวเลขล้วน: ตัดทุกอย่างที่ไม่ใช่ตัวเลขทิ้งแล้วค่อยตัดความยาว
+// (ไม่ใช้ maxLength เพราะวางเลขที่มีขีด เช่น 1-2345-67890-12-3 จะโดนตัดก่อนลบขีด ทำให้เลขหาย)
+// lawyerOnly = แสดงเฉพาะตอนเลือกบทบาททนาย
 const FIELDS = [
-  { key: 'idCardOrPass', icon: 'credit-card', placeholder: 'auth.idCard' },
+  { key: 'idCardOrPass', icon: 'credit-card', placeholder: 'auth.idCard', keyboardType: 'number-pad', digits: 13 },
+  { key: 'licenseId', icon: 'briefcase', placeholder: 'auth.licenseId', maxLength: LICENSE_MAX, autoCapitalize: 'characters', autoCorrect: false, lawyerOnly: true },
   { key: 'firstName', icon: 'user', placeholder: 'auth.firstName' },
   { key: 'lastName', icon: 'user', placeholder: 'auth.lastName' },
   { key: 'email', icon: 'mail', placeholder: 'auth.email', keyboardType: 'email-address', autoCapitalize: 'none' },
   { key: 'password', icon: 'lock', placeholder: 'auth.password', secureTextEntry: true },
   { key: 'confirmPassword', icon: 'lock', placeholder: 'auth.confirmPassword', secureTextEntry: true },
-  { key: 'phone', icon: 'phone', placeholder: 'auth.phone', keyboardType: 'phone-pad' },
+  { key: 'phone', icon: 'phone', placeholder: 'auth.phone', keyboardType: 'number-pad', digits: 10 },
 ];
 
 // วันเกิดไม่ใช่ช่องพิมพ์ (เลือกจาก DatePickerField) จึงไม่อยู่ใน FIELDS — เก็บเป็น 'YYYY-MM-DD'
@@ -44,9 +53,15 @@ function validate(form) {
   if (!form.idCardOrPass || !form.firstName || !form.lastName || !form.email || !form.password) {
     return 'auth.errRequired';
   }
+  if (!ID_CARD_PATTERN.test(form.idCardOrPass)) return 'auth.errIdCard';
+  if (form.role === 'lawyer') {
+    const license = form.licenseId.trim();
+    if (license.length < LICENSE_MIN || license.length > LICENSE_MAX) return 'auth.errLicense';
+  }
   if (!EMAIL_PATTERN.test(form.email.trim())) return 'auth.errEmailFormat';
   if (form.password.length < 6) return 'auth.errPasswordShort';
   if (form.password !== form.confirmPassword) return 'auth.errPasswordMismatch';
+  if (form.phone && !PHONE_PATTERN.test(form.phone)) return 'auth.errPhone';
   if (form.dob && !DATE_PATTERN.test(form.dob)) return 'auth.errDob';
   return '';
 }
@@ -70,8 +85,13 @@ export default function RegisterScreen({ navigation }) {
     setErrorMessage('');
     setLoading(true);
     try {
-      const { confirmPassword, ...payload } = form;
-      await authService.register({ ...payload, email: payload.email.trim() });
+      const { confirmPassword, licenseId, ...payload } = form;
+      await authService.register({
+        ...payload,
+        email: payload.email.trim(),
+        // ลูกความไม่ส่งเลขใบอนุญาต (เผื่อเคยพิมพ์ไว้ตอนเลือกทนายแล้วเปลี่ยนใจ)
+        ...(form.role === 'lawyer' && { licenseId: licenseId.trim() }),
+      });
       Alert.alert(t('auth.registerSuccessTitle'), t('auth.registerSuccessBody'));
       // popTo = ย้อนกลับไปหน้า Login เดิม (navigate ใน v7 จะซ้อนหน้าใหม่)
       navigation.popTo('Login', { registeredEmail: payload.email.trim() });
@@ -106,15 +126,17 @@ export default function RegisterScreen({ navigation }) {
             })}
           </View>
 
-          {FIELDS.map(({ key, placeholder, ...inputProps }) => (
-            <AuthInput
-              key={key}
-              {...inputProps}
-              placeholder={t(placeholder)}
-              value={form[key]}
-              onChangeText={(text) => handleChange(key, text)}
-            />
-          ))}
+          {FIELDS.filter((f) => !f.lawyerOnly || form.role === 'lawyer').map(
+            ({ key, placeholder, digits, lawyerOnly, ...inputProps }) => (
+              <AuthInput
+                key={key}
+                {...inputProps}
+                placeholder={t(placeholder)}
+                value={form[key]}
+                onChangeText={(text) => handleChange(key, digits ? text.replace(/\D/g, '').slice(0, digits) : text)}
+              />
+            )
+          )}
           <DatePickerField value={form.dob} onChange={(dob) => handleChange('dob', dob)} placeholder={t('auth.dob')} />
 
           {errorMessage ? (

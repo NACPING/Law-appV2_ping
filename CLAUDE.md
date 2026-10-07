@@ -52,6 +52,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 
 - **บทบาท:** CLIENT / LAWYER เลือกตอนสมัคร · ADMIN สร้างจาก seed เท่านั้น (`admin@example.com`)
 - **Login:** ใช้ Email + Password
+- **สมัครสมาชิก:** **ห้ามซ้ำ: อีเมล / เลขบัตรประชาชน / เลขใบอนุญาตทนาย** (แจ้งแยกว่าซ้ำช่องไหน) · เลขบัตรประชาชน **13 หลัก ตัวเลขเท่านั้น** (ไม่รับพาสปอร์ต) · เบอร์โทร **ไม่บังคับ แต่ถ้ากรอกต้อง 10 หลัก** (หน้าแก้ไขโปรไฟล์ใช้กฎเดียวกัน) · ทนายต้องกรอก **เลขใบอนุญาต (`licenseId`) 8–10 ตัว ใส่อะไรก็ได้** ห้ามซ้ำ — **เห็นเฉพาะทนายเจ้าของ + admin** (Prisma Studio) แก้ในแอปไม่ได้
 - **โพสต์:** เฉพาะ CLIENT สร้างโพสต์ได้ — **ทนายคอมเมนต์ได้อย่างเดียว** · โพสต์ไม่ระบุตัวตน = backend ไม่ส่งข้อมูลผู้เขียนเลย
 - **E-Book:** ทุก role อ่าน/ค้นหา/Favorite/ดาวน์โหลดได้ · เนื้อหาเป็นตัวบทกฎหมายจริงจากเว็บหน่วยงานรัฐ · ปกหนังสือแอปวาดเอง (ห้ามใช้ปกหนังสือที่มีลิขสิทธิ์)
 - **คำขอปรึกษา:** ลูกความส่ง → **admin อนุมัติในแอปพร้อมเลือกทนาย** หรือปฏิเสธพร้อมเหตุผล
@@ -69,7 +70,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 - คำสั่งอยู่ที่ `C:\Program Files\nodejs` — ถ้า shell หา `node`/`npm` ไม่เจอ ให้เติม path นี้ก่อน
 - ตรวจว่า build ผ่าน: `npx expo export --platform android` และ `--platform web` (ใส่ `--output-dir` ไปที่ temp)
 - **เจ้าของมักเปิด `npm run dev` ค้างไว้ที่ port 5000** — เช็กก่อนเปิด server ทดสอบ และปิดทุกตัวที่เปิดเองก่อนจบงาน
-- หลังแก้ `schema.prisma`: `npx prisma migrate dev --name <ชื่อ>` — ถ้าติด **EPERM** แปลว่า backend เปิดอยู่ล็อกไฟล์ ต้องหยุดก่อนแล้ว `npx prisma generate`
+- หลังแก้ `schema.prisma`: `npx prisma migrate dev --name <ชื่อ>` — ถ้าติด **EPERM** แปลว่า backend เปิดอยู่ล็อกไฟล์ ต้องหยุดก่อนแล้ว `npx prisma generate` · ถ้า migrate ถามยืนยัน (เช่น เพิ่ม `@unique`) แล้วขึ้น "non-interactive" → สร้าง SQL ด้วย `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script` ใส่โฟลเดอร์ `prisma/migrations/<เวลา>_<ชื่อ>/migration.sql` แล้ว `npx prisma migrate deploy`
 - ทดสอบด้วยบัญชีจาก seed (รหัส `password123`) และ **ลบข้อมูลทดสอบที่สร้างเองทุกครั้ง** — ข้อมูลอื่นในฐานข้อมูลเป็นของเจ้าของ ห้ามลบ
 - การทดสอบบนเว็บ **จับปัญหาเฉพาะมือถือไม่ได้** (ไฟล์, คีย์บอร์ด, การแตะ) → ให้เจ้าของลองใน Expo Go บนมือถือ Android ทุกครั้งที่เกี่ยวข้อง
 - คอมเมนต์ในโค้ดเขียนภาษาไทย อธิบาย "ทำไม" ตามสไตล์ไฟล์เดิม

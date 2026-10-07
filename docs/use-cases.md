@@ -19,7 +19,7 @@ Actors: **Lawyer**, **Client**, **Admin**
 |---|---|
 | Actor | Client, Lawyer |
 | Precondition | ผู้ใช้ยังไม่มีบัญชี |
-| Main flow | 1. ผู้ใช้กด "Sign Up" จากหน้า Login<br>2. เลือกบทบาท **Client** หรือ **Lawyer**<br>3. กรอก ID/Passport, First Name, Last Name, Email, Password, Confirm Password, Phone, Date of Birth<br>4. กด "Sign Up"<br>5. ระบบตรวจสอบข้อมูลและสร้างบัญชี<br>6. ระบบกลับไปหน้า Login พร้อมกรอก Email ไว้ให้ |
+| Main flow | 1. ผู้ใช้กด "Sign Up" จากหน้า Login<br>2. เลือกบทบาท **Client** หรือ **Lawyer**<br>3. กรอก เลขบัตรประชาชน (13 หลัก), (ทนาย: เลขใบอนุญาต 8–10 ตัว), First Name, Last Name, Email, Password, Confirm Password, Phone (ไม่บังคับ, 10 หลัก), Date of Birth<br>4. กด "Sign Up"<br>5. ระบบตรวจสอบข้อมูลและสร้างบัญชี<br>6. ระบบกลับไปหน้า Login พร้อมกรอก Email ไว้ให้ |
 | Alternative flow | 5a. ข้อมูลจำเป็นไม่ครบ / Email ผิดรูปแบบ / รหัสผ่านสั้นกว่า 6 ตัว / รหัสผ่านไม่ตรงกัน / วันเกิดผิดรูปแบบ → แสดงข้อความผิดพลาด<br>5b. Email ซ้ำในระบบ → แสดงข้อความผิดพลาด (เมื่อมี backend) |
 | Postcondition | มีบัญชีผู้ใช้ใหม่พร้อม role |
 | UI | `docs/figma` — Sign Up |

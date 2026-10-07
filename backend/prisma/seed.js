@@ -11,8 +11,8 @@ const img = (id) => `https://images.unsplash.com/photo-${id}?w=600&q=70&auto=for
 const hoursAgo = (h) => new Date(Date.now() - h * 60 * 60 * 1000);
 
 const USERS = [
-  { key: 'somchai', idCard: 'SEED-L-001', firstName: 'สมชาย', lastName: 'ใจธรรม', email: 'somchai.lawyer@example.com', role: 'LAWYER' },
-  { key: 'wipa', idCard: 'SEED-L-002', firstName: 'วิภาวดี', lastName: 'ศรีสุข', email: 'wipawadee.lawyer@example.com', role: 'LAWYER' },
+  { key: 'somchai', idCard: 'SEED-L-001', licenseId: '12345/2555', firstName: 'สมชาย', lastName: 'ใจธรรม', email: 'somchai.lawyer@example.com', role: 'LAWYER' },
+  { key: 'wipa', idCard: 'SEED-L-002', licenseId: '67890/2560', firstName: 'วิภาวดี', lastName: 'ศรีสุข', email: 'wipawadee.lawyer@example.com', role: 'LAWYER' },
   { key: 'nattapol', idCard: 'SEED-C-001', firstName: 'ณัฐพล', lastName: 'มีสุข', email: 'nattapol@example.com', role: 'CLIENT' },
   { key: 'kittiporn', idCard: 'SEED-C-002', firstName: 'กิตติพร', lastName: 'แสงทอง', email: 'kittiporn@example.com', role: 'CLIENT' },
   { key: 'pimchanok', idCard: 'SEED-C-003', firstName: 'พิมพ์ชนก', lastName: 'ทองดี', email: 'pimchanok@example.com', role: 'CLIENT' },

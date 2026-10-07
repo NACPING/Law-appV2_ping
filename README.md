@@ -44,7 +44,7 @@ npm run share     # เปิดอุโมงค์ Cloudflare ให้ backe
 | Method | Path | หมายเหตุ |
 |---|---|---|
 | GET | `/api/health` | |
-| POST | `/api/auth/register` | `role`: `client` / `lawyer` |
+| POST | `/api/auth/register` | `role`: `client` / `lawyer` · `idCardOrPass` = เลขบัตรประชาชน 13 หลัก (ห้ามซ้ำ, อีเมลก็ห้ามซ้ำ) · `phone?` = 10 หลัก · ทนายต้องส่ง `licenseId` 8–10 ตัว (ห้ามซ้ำ) |
 | POST | `/api/auth/login` | คืน `{ token, user }` |
 | GET | `/api/auth/me` | ต้องมี `Authorization: Bearer <token>` |
 | GET | `/api/posts` | รายการโพสต์ (โพสต์ไม่ระบุตัวตนจะไม่ส่งข้อมูลผู้เขียน) |
@@ -83,7 +83,7 @@ npm run share     # เปิดอุโมงค์ Cloudflare ให้ backe
 | PATCH | `/api/notifications/:id/read` · `/api/notifications/read-all` | ทำเครื่องหมายว่าอ่านแล้ว |
 
 | GET | `/api/users/:id` | หน้า Profile: ข้อมูล + `stats` + โพสต์ (ทนาย: ความคิดเห็นล่าสุด) · เบอร์/อีเมลเห็นเฉพาะเจ้าของ หรือทนายที่เปิด `showContact` · โพสต์ไม่ระบุตัวตนไม่แสดงให้คนอื่น |
-| PATCH | `/api/users/me` | `{ firstName?, lastName?, phone?, bio?, notifyPosts?, notifyChat?, notifyCases? }` + ทนาย: `about?`, `showContact?` + ลูกความ: `postAnonymously?` |
+| PATCH | `/api/users/me` | `phone?` ต้องเป็นตัวเลข 10 หลัก · `{ firstName?, lastName?, phone?, bio?, notifyPosts?, notifyChat?, notifyCases? }` + ทนาย: `about?`, `showContact?` + ลูกความ: `postAnonymously?` |
 | PUT / DELETE | `/api/users/me/avatar` | เปลี่ยนรูปโปรไฟล์ (multipart `avatar` ≤ 5 MB) / ลบรูป — ไฟล์เก่าถูกลบให้ |
 | PUT | `/api/users/me/password` | `{ currentPassword, newPassword }` |
 | PUT / DELETE | `/api/users/:id/follow` | ติดตาม / เลิกติดตาม (ลูกความ/ทนายเท่านั้น, ตัวเองไม่ได้) — คืน `{ isFollowing, followerCount }` |

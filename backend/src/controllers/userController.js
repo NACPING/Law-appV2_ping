@@ -1,14 +1,14 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/db');
 const { removeUploadedFiles } = require('../middlewares/upload');
-const { publicUser } = require('./authController');
+// เบอร์โทร 10 หลัก ใช้กฎเดียวกับตอนสมัคร
+const { publicUser, PHONE_PATTERN } = require('./authController');
 const { postInclude, toPostDto } = require('./postController');
 const { FOLLOWABLE_ROLES } = require('./followController');
 
 const MAX_NAME = 50;
 const MAX_BIO = 150;
 const MAX_ABOUT = 1000;
-const PHONE_PATTERN = /^[0-9+\-\s]{0,20}$/;
 const RECENT_LIMIT = 30;
 
 // GET /api/users/:id — หน้า Profile (ของตัวเอง หรือของคนอื่นที่แตะชื่อใน Community)

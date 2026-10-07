@@ -17,6 +17,8 @@ model User {
   email       String    @unique
   password    String
   phone       String?
+  // เลขใบอนุญาตว่าความ (เฉพาะ LAWYER, กรอกตอนสมัคร 8–10 ตัวอักษร) — เห็นเฉพาะทนายเจ้าของบัญชี + admin (Prisma Studio)
+  licenseId   String?   @unique
   dateOfBirth DateTime?
   role        String    @default("CLIENT")
   // หน้า Profile: รูป (path "/uploads/..."), คำแนะนำตัวสั้น, รายละเอียดทนาย (เฉพาะ LAWYER)

@@ -6,6 +6,13 @@ const { jwtSecret, jwtExpiresIn } = require('../config/env');
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SELF_REGISTER_ROLES = ['CLIENT', 'LAWYER']; // ADMIN สมัครเองไม่ได้
+// รูปแบบที่ตกลงกับเจ้าของ: เลขบัตรประชาชน 13 หลัก (ไม่รับพาสปอร์ต) · เบอร์โทร 10 หลัก (ไม่บังคับ)
+// · เลขใบอนุญาตทนาย 8–10 ตัว ใส่อะไรก็ได้ (เลข ตัวอักษร เครื่องหมาย เช่น 12345/2560)
+const ID_CARD_PATTERN = /^\d{13}$/;
+const PHONE_PATTERN = /^\d{10}$/;
+const LICENSE_MIN = 8;
+const LICENSE_MAX = 10;
+exports.PHONE_PATTERN = PHONE_PATTERN;
 
 // ข้อมูลของผู้ใช้ที่ล็อกอิน (ส่งให้เจ้าของบัญชีเท่านั้น)
 const publicUser = (user) => ({
@@ -15,6 +22,7 @@ const publicUser = (user) => ({
   lastName: user.lastName,
   role: user.role,
   phone: user.phone,
+  licenseId: user.licenseId, // ส่งให้เจ้าของบัญชีเท่านั้น — โปรไฟล์ที่คนอื่นเห็นไม่มีช่องนี้
   avatarUrl: user.avatarUrl,
   bio: user.bio,
   about: user.about,
@@ -32,12 +40,24 @@ const signToken = (user) =>
 
 // POST /api/auth/register — Use Case: Register
 exports.register = async (req, res) => {
-  const { idCardOrPass, firstName, lastName, email, password, phone, dob, role } = req.body ?? {};
+  const { firstName, lastName, email, password, dob, role } = req.body ?? {};
   const normalizedEmail = String(email ?? '').trim().toLowerCase();
   const normalizedRole = String(role ?? 'CLIENT').toUpperCase();
+  const idCard = String(req.body?.idCardOrPass ?? '').trim();
+  const phone = String(req.body?.phone ?? '').trim();
+  const licenseId = normalizedRole === 'LAWYER' ? String(req.body?.licenseId ?? '').trim() : '';
 
-  if (!idCardOrPass || !firstName || !lastName || !normalizedEmail || !password) {
+  if (!idCard || !firstName || !lastName || !normalizedEmail || !password) {
     return res.status(400).json({ message: req.t('auth.required') });
+  }
+  if (!ID_CARD_PATTERN.test(idCard)) {
+    return res.status(400).json({ message: req.t('auth.idCardFormat') });
+  }
+  if (phone && !PHONE_PATTERN.test(phone)) {
+    return res.status(400).json({ message: req.t('auth.phoneFormat') });
+  }
+  if (normalizedRole === 'LAWYER' && (licenseId.length < LICENSE_MIN || licenseId.length > LICENSE_MAX)) {
+    return res.status(400).json({ message: req.t('auth.licenseFormat', { min: LICENSE_MIN, max: LICENSE_MAX }) });
   }
   if (!EMAIL_PATTERN.test(normalizedEmail)) {
     return res.status(400).json({ message: req.t('auth.emailFormat') });
@@ -52,25 +72,40 @@ exports.register = async (req, res) => {
     return res.status(400).json({ message: req.t('auth.dobFormat') });
   }
 
-  const existing = await prisma.user.findFirst({
-    where: { OR: [{ email: normalizedEmail }, { idCard: idCardOrPass }] },
-  });
-  if (existing) {
-    return res.status(409).json({ message: req.t('auth.duplicate') });
+  // ห้ามซ้ำ: อีเมล / เลขบัตรประชาชน / เลขใบอนุญาตทนาย — แยกข้อความให้ผู้ใช้รู้ว่าซ้ำช่องไหน
+  // (ฐานข้อมูลตั้ง @unique ไว้ทั้งสามช่อง กันซ้ำอีกชั้นแม้มีคนสมัครพร้อมกัน)
+  if (await prisma.user.findUnique({ where: { email: normalizedEmail } })) {
+    return res.status(409).json({ message: req.t('auth.emailDuplicate') });
+  }
+  if (await prisma.user.findUnique({ where: { idCard } })) {
+    return res.status(409).json({ message: req.t('auth.idCardDuplicate') });
+  }
+  if (licenseId && (await prisma.user.findUnique({ where: { licenseId } }))) {
+    return res.status(409).json({ message: req.t('auth.licenseDuplicate') });
   }
 
-  const user = await prisma.user.create({
-    data: {
-      idCard: idCardOrPass,
-      firstName,
-      lastName,
-      email: normalizedEmail,
-      password: await bcrypt.hash(password, 10),
-      phone: phone || null,
-      dateOfBirth: dob ? new Date(dob) : null,
-      role: normalizedRole,
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        idCard,
+        licenseId: licenseId || null,
+        firstName,
+        lastName,
+        email: normalizedEmail,
+        password: await bcrypt.hash(password, 10),
+        phone: phone || null,
+        dateOfBirth: dob ? new Date(dob) : null,
+        role: normalizedRole,
+      },
+    });
+  } catch (err) {
+    // P2002 = ชน @unique — มีคนสมัครด้วยข้อมูลเดียวกันพร้อมกันพอดี (ผ่านการเช็กด้านบนมาทั้งคู่)
+    if (err.code !== 'P2002') throw err;
+    const field = String(err.meta?.target ?? '');
+    const key = field.includes('licenseId') ? 'auth.licenseDuplicate' : field.includes('idCard') ? 'auth.idCardDuplicate' : 'auth.emailDuplicate';
+    return res.status(409).json({ message: req.t(key) });
+  }
 
   res.status(201).json({ message: req.t('auth.registered'), user: publicUser(user) });
 };

@@ -85,6 +85,10 @@ export default function EditProfileScreen({ navigation }) {
       setError(t('profile.errName'));
       return;
     }
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      setError(t('auth.errPhone'));
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -127,7 +131,13 @@ export default function EditProfileScreen({ navigation }) {
 
         <Field label={t('profile.firstName')} value={form.firstName} onChangeText={set('firstName')} maxLength={50} />
         <Field label={t('profile.lastName')} value={form.lastName} onChangeText={set('lastName')} maxLength={50} />
-        <Field label={t('profile.phone')} value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" maxLength={20} />
+        {/* เบอร์โทร 10 หลัก ตัวเลขอย่างเดียว (กฎเดียวกับตอนสมัคร) — ลบขีดก่อนตัดความยาว จึงไม่ใช้ maxLength */}
+        <Field
+          label={t('profile.phone')}
+          value={form.phone}
+          onChangeText={(text) => set('phone')(text.replace(/\D/g, '').slice(0, 10))}
+          keyboardType="number-pad"
+        />
         <Field
           label={t('profile.bio', { n: form.bio.length, max: MAX_BIO })}
           value={form.bio}
@@ -167,6 +177,13 @@ export default function EditProfileScreen({ navigation }) {
 
         <Text style={styles.label}>{t('profile.emailReadonly')}</Text>
         <Text style={styles.readonly}>{user.email}</Text>
+        {/* เลขใบอนุญาตเห็นเฉพาะทนายเจ้าของบัญชี (แก้ไม่ได้ — ติดต่อ admin) */}
+        {isLawyer && user.licenseId ? (
+          <>
+            <Text style={styles.label}>{t('profile.licenseReadonly')}</Text>
+            <Text style={styles.readonly}>{user.licenseId}</Text>
+          </>
+        ) : null}
 
         {error ? (
           <Text style={styles.error} accessibilityRole="alert">
