@@ -13,8 +13,13 @@ const API_PORT = 5000;
 function resolveBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
 
-  const hostUri = Constants.expoConfig?.hostUri; // เช่น "192.168.1.38:8081"
-  let host = hostUri ? hostUri.split(':')[0] : 'localhost';
+  // เช่น "192.168.1.38:8081" — SDK 58 อาจส่ง manifest แบบ URL สั้นให้ Expo Go รุ่นใหม่จน hostUri หาย
+  // จึงสำรองด้วย debuggerHost และ linkingUri (exp://192.168.1.38:8081)
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.expoGoConfig?.debuggerHost ||
+    (Constants.linkingUri ?? '').replace(/^[a-z]+:\/\//i, '');
+  let host = hostUri ? hostUri.split(/[:/]/)[0] : 'localhost';
   if (Platform.OS === 'web' && typeof window !== 'undefined') host = window.location.hostname;
   return `http://${host}:${API_PORT}/api`;
 }

@@ -25,7 +25,8 @@
             "backgroundColor": "#121212"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "icon": "./assets/app-icon.png",
     "android": {

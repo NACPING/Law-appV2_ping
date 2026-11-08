@@ -17,9 +17,10 @@
 
 ## Stack
 
-- **App:** Expo SDK 57, React Native 0.86, JavaScript (ไม่ใช้ TypeScript), React Navigation 7
+- **App:** Expo SDK 58, React Native 0.88, React 19.3, JavaScript (ไม่ใช้ TypeScript), React Navigation 7 (อัปจาก SDK 57 เพราะ Expo Go บนมือถืออัปแล้วเปิดรุ่นเก่าไม่ได้)
 - **Backend:** `backend/` — Express 5 + Prisma 5 (SQLite `backend/prisma/dev.db`) + JWT + socket.io
-- Expo เปลี่ยนเร็ว — ก่อนใช้ API ของ Expo ให้เช็กเอกสาร https://docs.expo.dev/versions/v57.0.0/ หรือไฟล์ `.d.ts` ใน `node_modules`
+- Expo เปลี่ยนเร็ว — ก่อนใช้ API ของ Expo ให้เช็กเอกสาร https://docs.expo.dev/versions/v58.0.0/ หรือไฟล์ `.d.ts` ใน `node_modules`
+- **อัป SDK ต้องอัปทุกแพ็กเกจพร้อมกัน** ด้วย `npx expo install expo@^<รุ่น> --fix` แล้ว `npx expo-doctor@latest` — อัปแค่ `expo` ตัวเดียว (เช่น `npm install expo@latest`) แอปจะขึ้นจอแดง "Unable to resolve module react-native/setup-env"
 
 ## โครงสร้าง
 
@@ -77,7 +78,7 @@ backend/prisma/ schema.prisma, seed.js (+ seedEbooks.js, seedLawyerRequests.js)
 
 ## ข้อควรระวัง (เคยเจอมาแล้ว)
 
-- **Expo 57 ใช้ `expo/fetch`** บนมือถือ → FormData แบบ `{ uri, name, type }` **ใช้ไม่ได้** · ใช้ `utils/formFile.js` (อ่าน bytes ก่อนแนบ) และ expo/fetch ส่งชื่อไฟล์แบบ percent-encoded (backend แปลงกลับแล้ว)
+- **Expo (ตั้งแต่ 57) ใช้ `expo/fetch`** บนมือถือ → FormData แบบ `{ uri, name, type }` **ใช้ไม่ได้** · ใช้ `utils/formFile.js` (อ่าน bytes ก่อนแนบ) และ expo/fetch ส่งชื่อไฟล์แบบ percent-encoded (backend แปลงกลับแล้ว)
 - **Android edge-to-edge:** คีย์บอร์ดไม่ดันหน้าจอเอง → ใช้ `components/KeyboardAware` แทน KeyboardAvoidingView ทุกหน้า
 - **ช่องพิมพ์หลายบรรทัด (multiline)** ต้องมี `maxHeight` และเลื่อน ScrollView ไปที่ช่องตอน `onFocus` (ดู EditProfileScreen/CreatePostScreen) — ไม่งั้นพิมพ์ยาวแล้วช่องขยายจนโดนคีย์บอร์ดบัง
 - **Dark mode: ห้ามเขียนสีตรงๆ** — สไตล์เขียนเป็น `const makeStyles = (c) => StyleSheet.create({...})` แล้ว `useThemedStyles(makeStyles)` ใน component · สีใน JSX ใช้ `const { colors } = useTheme()` · ตัวอักษร/ไอคอนสีแบรนด์ใช้ `accent` (ไม่ใช่ `primary` ซึ่งมืดเกินบนพื้นมืด) · `navigation.setOptions` ใน useLayoutEffect ต้องใส่ `colors`/`styles` ใน deps ไม่งั้นปุ่มบน header ค้างสีเดิม
